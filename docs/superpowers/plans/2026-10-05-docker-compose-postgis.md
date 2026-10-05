@@ -26,7 +26,7 @@
 **Interfaces:**
 - Produces: Service `postgres` exposing port 5432, database `astra_db`, user `astra_user`, password `astra_password`, network `astra-network`.
 
-- [ ] **Step 1: Write `docker-compose.yml` content**
+- [x] **Step 1: Write `docker-compose.yml` content**
 
 Populate `docker-compose.yml` with:
 ```yaml
@@ -60,12 +60,12 @@ networks:
     driver: bridge
 ```
 
-- [ ] **Step 2: Validate YAML syntax**
+- [x] **Step 2: Validate YAML syntax**
 
 Run: `python3 -c "import yaml; yaml.safe_load(open('docker-compose.yml'))" && echo "YAML VALID"`
 Expected output: `YAML VALID`
 
-- [ ] **Step 3: Commit changes**
+- [x] **Step 3: Commit changes**
 
 ```bash
 git add docker-compose.yml
