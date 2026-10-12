@@ -27,7 +27,7 @@ Sprint 1 Task 3 for the Astra project. Scaffold a Java 21 Spring Boot 3.x projec
 | `spring-boot-starter-web` | compile | REST controller support |
 | `spring-boot-starter-data-jpa` | compile | Spring Data JPA + Hibernate ORM |
 | `postgresql` | runtime | PostgreSQL JDBC driver |
-| `org.hibernate.orm:hibernate-spatial` | compile | PostGIS geometry type mapping |
+| `org.hibernate.orm:hibernate-spatial` | compile (BOM-managed, no version tag) | PostGIS geometry type mapping |
 | `org.locationtech.jts:jts-core` | compile | JTS Point, LineString, Polygon types |
 | `spring-boot-starter-test` | test | JUnit 5, Mockito, Spring Test |
 
@@ -40,7 +40,6 @@ spring:
     password: astra_password
     driver-class-name: org.postgresql.Driver
   jpa:
-    database-platform: org.hibernate.spatial.dialect.postgis.PostgisPG10Dialect
     hibernate:
       ddl-auto: update
     show-sql: true
@@ -49,19 +48,23 @@ spring:
         format_sql: true
 ```
 
+> **Note:** No `database-platform` is set. Hibernate 6 auto-detects PostgreSQL + hibernate-spatial and registers PostGIS geometry types automatically. The legacy `PostgisPG10Dialect` class does not exist in Hibernate 6.
+
 ### 3.4 Package Structure
+Each domain package contains a `package-info.java` so the modular monolith structure is committed to Git (Git ignores empty directories).
 ```
 backend/src/main/java/com/astra/engine/
 ├── AstraEngineApplication.java
-├── telemetry/
-├── routing/
-├── anomaly/
-├── mcp/
-├── state/
-└── common/
+├── telemetry/package-info.java
+├── routing/package-info.java
+├── anomaly/package-info.java
+├── mcp/package-info.java
+├── state/package-info.java
+└── common/package-info.java
 ```
 
 ### 3.5 Verification Criteria
 1. `docker compose up -d postgres` → container reaches healthy state.
 2. `./mvnw test` from `/backend` → Spring application context loads, Hibernate connects to PostGIS, tests pass.
-3. `./mvnw spring-boot:run` from `/backend` → starts on port 8080, logs confirm DB connection.
+3. `AstraEngineApplicationTests` injects `JdbcTemplate` and asserts that `SELECT PostGIS_Version()` returns a non-empty string, proving the PostGIS extension is active.
+4. `./mvnw spring-boot:run` from `/backend` → starts on port 8080, logs confirm DB connection.
