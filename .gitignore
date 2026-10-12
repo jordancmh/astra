@@ -1,1 +1,9 @@
 docs/
+documents/
+
+# GraphHopper generated binary cache
+routing-data/graph-cache/
+routing-data/*latest.osm.pbf
+
+# Agent files
+AGENTS.md
