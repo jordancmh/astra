@@ -25,7 +25,7 @@ services:
       - "8989:8989"
     volumes:
       - ./routing-data:/data
-    command: ["--input", "/data/klang-valley.osm.pbf", "--config", "/data/config.yml", "--graph-location", "/data/graph-cache"]
+    command: ["--input", "/data/klang-valley.osm.pbf", "--config", "/data/config.yml", "--graph-cache", "/data/graph-cache"]
     restart: unless-stopped
     
 volumes:

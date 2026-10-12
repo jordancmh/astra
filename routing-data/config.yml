@@ -1,12 +1,11 @@
 graphhopper:
   datareader.file: /data/klang-valley.osm.pbf
   graph.location: /data/graph-cache
+  import.osm.ignored_highways: ''
 
   profiles:
     - name: car
-      weighting: custom
-      custom_model:
-        distance_influence: 70
+      custom_model_files: [car.json]
 
   # Enable Landmark (LM) preparation instead of rigid CH so custom_model polygon avoidance works at runtime
   profiles_lm:
@@ -16,7 +15,7 @@ graphhopper:
   routing.non_ch.max_waypoint_distance: 1000000
 
   # Essential: required by custom_model to block roads or reduce speed in disrupted zones
-  graph.encoded_values: road_access, car_access, car_average_speed
+  graph.encoded_values: road_access, car_access, car_average_speed, road_environment, ferry_speed, max_speed
 
 server:
   application_connectors:
