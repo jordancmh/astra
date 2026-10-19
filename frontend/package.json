@@ -29,7 +29,7 @@
     "@angular/platform-browser": "^20.3.0",
     "@angular/router": "^20.3.0",
     "@tailwindcss/postcss": "^4.3.3",
-    "mapbox-gl": "^3.33.0",
+    "mapbox-gl": "^3.18.0",
     "postcss": "^8.5.31",
     "rxjs": "~7.8.0",
     "tailwindcss": "^4.3.3",
