@@ -1,0 +1,102 @@
+<div class="dashboard-root">
+
+  <!-- Header Bar -->
+  <header class="header-bar">
+    <div class="header-left">
+      <div class="brand-mark">
+        <span class="brand-icon">⬡</span>
+        <span class="brand-name">ASTRA</span>
+        <span class="brand-sub">Dynamic Rerouting Engine</span>
+      </div>
+    </div>
+
+    <div class="header-center">
+      <span class="system-status-pill status-nominal">
+        <span class="pulse-dot"></span>
+        SYSTEM OPERATIONAL
+      </span>
+    </div>
+
+    <div class="header-right">
+      <div class="header-meta">
+        <span class="region-tag">KLANG VALLEY</span>
+        <span class="header-time">{{ currentTime | date:'HH:mm:ss' }}</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <div class="content-area">
+
+    <!-- Left Sidebar -->
+    <aside class="sidebar">
+      <section class="sidebar-panel">
+        <h2 class="panel-title"><span class="panel-icon">🚛</span>Fleet Status</h2>
+        <div class="stat-grid">
+          <div class="stat-item">
+            <span class="stat-value">{{ fleetStats.total }}</span>
+            <span class="stat-label">Total</span>
+          </div>
+          <div class="stat-item nominal">
+            <span class="stat-value">{{ fleetStats.nominal }}</span>
+            <span class="stat-label">Nominal</span>
+          </div>
+          <div class="stat-item rerouting">
+            <span class="stat-value">{{ fleetStats.rerouting }}</span>
+            <span class="stat-label">Rerouting</span>
+          </div>
+          <div class="stat-item disrupted">
+            <span class="stat-value">{{ fleetStats.disrupted }}</span>
+            <span class="stat-label">Disrupted</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="sidebar-panel">
+        <h2 class="panel-title"><span class="panel-icon">🗺️</span>Active Routes</h2>
+        <div class="panel-empty-state">
+          <span>No routes loaded</span>
+          <small>Backend connection pending</small>
+        </div>
+      </section>
+
+      <section class="sidebar-panel">
+        <h2 class="panel-title"><span class="panel-icon">⚠️</span>Network Anomalies</h2>
+        <div class="panel-empty-state">
+          <span>No anomalies detected</span>
+          <small>Monitoring active</small>
+        </div>
+      </section>
+
+      <section class="sidebar-panel legend-panel">
+        <h2 class="panel-title">Legend</h2>
+        <ul class="legend-list">
+          <li><span class="legend-dot nominal"></span>Nominal / Optimal</li>
+          <li><span class="legend-dot conflict"></span>Conflict</li>
+          <li><span class="legend-dot disrupted"></span>Disrupted</li>
+          <li><span class="legend-dot rerouting"></span>Rerouting</li>
+        </ul>
+      </section>
+    </aside>
+
+    <!-- Map Viewport -->
+    <main class="map-viewport">
+      <app-map-view></app-map-view>
+      <div class="map-hud-badge">
+        <span class="hud-label">BOUNDING REGION</span>
+        <span class="hud-value">Lat 2.90–3.30 · Lng 101.40–101.90</span>
+      </div>
+    </main>
+
+  </div>
+
+  <!-- Event Log Strip -->
+  <footer class="event-log-strip">
+    <span class="event-log-label">EVENT LOG</span>
+    <div class="event-log-feed">
+      <span class="event-log-placeholder">Awaiting negotiation events from MAS agents…</span>
+    </div>
+    <span class="event-log-count">0 events</span>
+  </footer>
+
+</div>

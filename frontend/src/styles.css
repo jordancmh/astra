@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+/* ─── ASTRA Design Tokens ─────────────────────────────── */
+:root {
+  /* Status colours */
+  --color-nominal:    #22c55e;
+  --color-conflict:   #f59e0b;
+  --color-disrupted:  #ef4444;
+  --color-rerouting:  #06b6d4;
+
+  /* Surface colours */
+  --color-surface-base:   #0a0f1e;
+  --color-surface-panel:  #0d1528;
+  --color-surface-card:   #111827;
+  --color-border:         #1e2d4a;
+
+  /* Accent / Brand */
+  --color-accent:         #06b6d4;
+  --color-accent-glow:    rgba(6, 182, 212, 0.25);
+
+  /* Typography */
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-sans: 'Inter', 'Segoe UI', sans-serif;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  background-color: var(--color-surface-base);
+  color: #e2e8f0;
+  font-family: var(--font-sans);
+  overflow: hidden;
+}
+
+/* Scrollbar styling for sidebar panels */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--color-surface-panel); }
+::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 2px; }
