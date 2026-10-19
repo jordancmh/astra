@@ -14,12 +14,16 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.astra.engine.common.CorsConfig;
+
 @WebMvcTest(RouteController.class)
-@Import(GlobalExceptionHandler.class)
+@Import({GlobalExceptionHandler.class, CorsConfig.class})
 class RouteControllerTest {
 
     @Autowired
@@ -131,5 +135,14 @@ class RouteControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.status").value(400))
                 .andExpect(jsonPath("$.errors.routeId").exists());
+    }
+
+    @Test
+    void calculateRoute_corsPreflight_returns200WithCorsHeaders() throws Exception {
+        mockMvc.perform(options("/api/v1/routes/calculate")
+                        .header("Origin", "http://localhost:4200")
+                        .header("Access-Control-Request-Method", "POST"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:4200"));
     }
 }
