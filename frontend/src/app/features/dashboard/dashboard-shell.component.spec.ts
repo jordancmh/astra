@@ -1,6 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { DashboardShellComponent } from './dashboard-shell.component';
+import { RoutingService } from '../../core/services/routing.service';
 import mapboxgl from 'mapbox-gl';
+import { of } from 'rxjs';
 
 describe('DashboardShellComponent', () => {
   let component: DashboardShellComponent;
@@ -12,6 +14,11 @@ describe('DashboardShellComponent', () => {
       addControl: jasmine.createSpy('addControl'),
       on: jasmine.createSpy('on'),
       remove: jasmine.createSpy('remove'),
+      addSource: jasmine.createSpy('addSource'),
+      getSource: jasmine.createSpy('getSource').and.returnValue(undefined),
+      addLayer: jasmine.createSpy('addLayer'),
+      getLayer: jasmine.createSpy('getLayer').and.returnValue(undefined),
+      fitBounds: jasmine.createSpy('fitBounds'),
     } as any);
     spyOn(mapboxgl, 'NavigationControl').and.returnValue({} as any);
     spyOn(mapboxgl, 'AttributionControl').and.returnValue({} as any);
@@ -19,6 +26,20 @@ describe('DashboardShellComponent', () => {
 
     await TestBed.configureTestingModule({
       imports: [DashboardShellComponent],
+      providers: [
+        {
+          provide: RoutingService,
+          useValue: {
+            calculateRoute: () => of({
+              routeId: 'RT-001',
+              status: 'OPTIMAL',
+              distanceMeters: 1000,
+              estimatedTimeMs: 100000,
+              geometry: { type: 'LineString', coordinates: [] },
+            }),
+          },
+        },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(DashboardShellComponent);
