@@ -58,6 +58,15 @@ class McpServerIntegrationTest {
     }
 
     @Test
+    void mcpEndpoint_shouldRespondToOptionsWithCorsHeaders() throws Exception {
+        mockMvc.perform(options("/mcp")
+                        .header("Origin", "http://localhost:4200")
+                        .header("Access-Control-Request-Method", "POST"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Access-Control-Allow-Origin", "http://localhost:4200"));
+    }
+
+    @Test
     void sseEndpoint_shouldRespondToOptionsWithCorsHeaders() throws Exception {
         mockMvc.perform(options("/sse")
                         .header("Origin", "http://localhost:4200")
