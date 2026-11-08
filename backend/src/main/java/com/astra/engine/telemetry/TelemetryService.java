@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 
 @Service
 public class TelemetryService {
@@ -34,6 +35,34 @@ public class TelemetryService {
                 "NOMINAL",
                 null,
                 saved.getRecordedAt()
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public List<VehicleStatusDto> getFleetState(String vehicleId) {
+        if (vehicleId != null && !vehicleId.isBlank()) {
+            return telemetryRepository.findFirstByVehicleIdOrderByRecordedAtDesc(vehicleId.trim())
+                    .map(this::toStatusDto)
+                    .map(List::of)
+                    .orElseGet(List::of);
+        }
+        return telemetryRepository.findLatestTelemetryForAllVehicles().stream()
+                .map(this::toStatusDto)
+                .toList();
+    }
+
+    private VehicleStatusDto toStatusDto(VehicleTelemetry entity) {
+        double lat = entity.getCoordinates() != null ? entity.getCoordinates().getY() : 0.0;
+        double lng = entity.getCoordinates() != null ? entity.getCoordinates().getX() : 0.0;
+        return new VehicleStatusDto(
+                entity.getVehicleId(),
+                entity.getRouteId(),
+                lat,
+                lng,
+                entity.getBearing(),
+                entity.getSpeedKmh(),
+                "NOMINAL",
+                entity.getRecordedAt()
         );
     }
 }
