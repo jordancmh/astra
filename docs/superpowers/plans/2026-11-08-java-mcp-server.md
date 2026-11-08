@@ -1,6 +1,6 @@
 # Implementation Plan: Implement Java MCP Server (Issue #13)
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Implement a production-grade Model Context Protocol (MCP) Server in the Spring Boot `/backend` (`com.astra.engine.mcp`) exposing HTTP/SSE transport on port `8081`. Register two predefined MCP tools—`getFleetState` (reads vehicle telemetry/status) and `updateRoute` (writes detour geometries)—enforcing strict spatial validation (Klang Valley bounds, `[longitude, latitude]` order, SRID 4326) and security perimeter guardrails (NFR 2.1: strictly routing through existing JPA Repositories and Domain Services, rejecting raw SQL).
 
@@ -47,18 +47,18 @@
 **Files:**
 - Git only
 
-- [ ] **Step 1: Check out `main` and pull latest changes**
+- [x] **Step 1: Check out `main` and pull latest changes**
 ```bash
 git checkout main
 git pull origin main
 ```
 
-- [ ] **Step 2: Create and checkout feature branch**
+- [x] **Step 2: Create and checkout feature branch**
 ```bash
 git checkout -b feature/13-java-mcp-server
 ```
 
-- [ ] **Step 3: Verify git status**
+- [x] **Step 3: Verify git status**
 ```bash
 git status
 ```
@@ -71,7 +71,7 @@ Expected: `On branch feature/13-java-mcp-server`, working tree clean.
 **Files:**
 - Modify: `backend/pom.xml`
 
-- [ ] **Step 1: Add Spring AI BOM to `<dependencyManagement>` and `spring-ai-starter-mcp-server-webmvc` to `<dependencies>`**
+- [x] **Step 1: Add Spring AI BOM to `<dependencyManagement>` and `spring-ai-starter-mcp-server-webmvc` to `<dependencies>`**
 Add the following blocks to `backend/pom.xml`:
 
 ```xml
@@ -101,7 +101,7 @@ Under `<dependencies>`:
 		</dependency>
 ```
 
-- [ ] **Step 2: Verify dependency resolution**
+- [x] **Step 2: Verify dependency resolution**
 ```bash
 cd /home/jordan/sunway/capstone/astra/backend
 ./mvnw dependency:resolve
@@ -116,14 +116,14 @@ Expected: `BUILD SUCCESS`.
 - Modify: `backend/src/main/java/com/astra/engine/common/GeometryUtils.java`
 - Modify: `backend/src/test/java/com/astra/engine/common/GeometryUtilsTest.java`
 
-- [ ] **Step 1: Write unit tests in `GeometryUtilsTest.java` for LineString creation and Klang Valley bounds validation**
+- [x] **Step 1: Write unit tests in `GeometryUtilsTest.java` for LineString creation and Klang Valley bounds validation**
 Add tests verifying:
 - Valid coordinate pairs produce a JTS `LineString` with SRID 4326.
 - Order is strictly `[longitude, latitude]`.
 - Null, empty, or single-point lists throw `IllegalArgumentException`.
 - Bounding box validator method `isWithinKlangValley(double longitude, double latitude)` correctly accepts coordinates within `Lat: [2.90, 3.30]`, `Lng: [101.40, 101.90]` and rejects coordinates outside.
 
-- [ ] **Step 2: Implement `createLineString` and `isWithinKlangValley` in `GeometryUtils.java`**
+- [x] **Step 2: Implement `createLineString` and `isWithinKlangValley` in `GeometryUtils.java`**
 ```java
 package com.astra.engine.common;
 
@@ -184,7 +184,7 @@ public final class GeometryUtils {
 }
 ```
 
-- [ ] **Step 3: Run unit tests**
+- [x] **Step 3: Run unit tests**
 ```bash
 cd /home/jordan/sunway/capstone/astra/backend
 ./mvnw test -Dtest=GeometryUtilsTest
@@ -202,7 +202,7 @@ To support `updateRoute` persisting detour geometries into PostgreSQL/PostGIS (m
 - Create: `backend/src/main/java/com/astra/engine/routing/RouteRepository.java`
 - Create: `backend/src/test/java/com/astra/engine/routing/RouteRepositoryTest.java`
 
-- [ ] **Step 1: Create `Route.java` JPA entity**
+- [x] **Step 1: Create `Route.java` JPA entity**
 ```java
 package com.astra.engine.routing;
 
@@ -286,7 +286,7 @@ public class Route {
 }
 ```
 
-- [ ] **Step 2: Create `RouteRepository.java`**
+- [x] **Step 2: Create `RouteRepository.java`**
 ```java
 package com.astra.engine.routing;
 
@@ -298,10 +298,10 @@ public interface RouteRepository extends JpaRepository<Route, String> {
 }
 ```
 
-- [ ] **Step 3: Write `@DataJpaTest` integration test in `RouteRepositoryTest.java`**
+- [x] **Step 3: Write `@DataJpaTest` integration test in `RouteRepositoryTest.java`**
 Verify saving and querying a `Route` with JTS `LineString` (SRID 4326) works against PostGIS.
 
-- [ ] **Step 4: Run repository test**
+- [x] **Step 4: Run repository test**
 ```bash
 cd /home/jordan/sunway/capstone/astra/backend
 ./mvnw test -Dtest=RouteRepositoryTest
@@ -321,7 +321,7 @@ Extend the domain services to expose clean DTO methods for fleet state retrieval
 - Modify: `backend/src/main/java/com/astra/engine/routing/RoutingService.java`
 - Create: `backend/src/main/java/com/astra/engine/routing/RouteUpdateResult.java`
 
-- [ ] **Step 1: Define `VehicleStatusDto.java`**
+- [x] **Step 1: Define `VehicleStatusDto.java`**
 ```java
 package com.astra.engine.telemetry;
 
@@ -339,7 +339,7 @@ public record VehicleStatusDto(
 ) {}
 ```
 
-- [ ] **Step 2: Add latest telemetry query in `VehicleTelemetryRepository.java`**
+- [x] **Step 2: Add latest telemetry query in `VehicleTelemetryRepository.java`**
 ```java
 package com.astra.engine.telemetry;
 
@@ -364,7 +364,7 @@ public interface VehicleTelemetryRepository extends JpaRepository<VehicleTelemet
 }
 ```
 
-- [ ] **Step 3: Add `getFleetState` methods in `TelemetryService.java`**
+- [x] **Step 3: Add `getFleetState` methods in `TelemetryService.java`**
 ```java
     @Transactional(readOnly = true)
     public List<VehicleStatusDto> getFleetState(String vehicleId) {
@@ -395,7 +395,7 @@ public interface VehicleTelemetryRepository extends JpaRepository<VehicleTelemet
     }
 ```
 
-- [ ] **Step 4: Define `RouteUpdateResult.java`**
+- [x] **Step 4: Define `RouteUpdateResult.java`**
 ```java
 package com.astra.engine.routing;
 
@@ -413,7 +413,7 @@ public record RouteUpdateResult(
 ) {}
 ```
 
-- [ ] **Step 5: Add `updateRoute` method in `RoutingService.java`**
+- [x] **Step 5: Add `updateRoute` method in `RoutingService.java`**
 ```java
     private final RouteRepository routeRepository;
 
@@ -450,7 +450,7 @@ public record RouteUpdateResult(
     }
 ```
 
-- [ ] **Step 6: Update existing `RoutingService` and `RouteController` tests to pass with new dependency**
+- [x] **Step 6: Update existing `RoutingService` and `RouteController` tests to pass with new dependency**
 Verify existing unit tests (`RoutingIntegrationTest`, `RouteControllerTest`) compile and pass.
 
 ---
@@ -464,7 +464,7 @@ Scaffold the MCP tools inside `com.astra.engine.mcp`.
 - Create: `backend/src/main/java/com/astra/engine/mcp/dto/FleetStateRequest.java`
 - Create: `backend/src/main/java/com/astra/engine/mcp/dto/RouteUpdateRequest.java`
 
-- [ ] **Step 1: Create request DTOs with validation rules**
+- [x] **Step 1: Create request DTOs with validation rules**
 `FleetStateRequest.java`:
 ```java
 package com.astra.engine.mcp.dto;
@@ -486,7 +486,7 @@ public record RouteUpdateRequest(
 ) {}
 ```
 
-- [ ] **Step 2: Implement `McpTools.java`**
+- [x] **Step 2: Implement `McpTools.java`**
 Enforce NFR 2.1: Route strictly through `TelemetryService` and `RoutingService`. No raw SQL strings or parameters allowed.
 ```java
 package com.astra.engine.mcp;
@@ -585,7 +585,7 @@ Configure the Spring AI MCP Server beans and application properties.
 - Modify: `backend/src/main/resources/application.yml`
 - Modify: `backend/src/main/java/com/astra/engine/common/CorsConfig.java`
 
-- [ ] **Step 1: Configure application properties in `application.yml`**
+- [x] **Step 1: Configure application properties in `application.yml`**
 Add MCP server properties:
 ```yaml
 spring:
@@ -600,7 +600,7 @@ spring:
         sse-message-endpoint: /mcp/message
 ```
 
-- [ ] **Step 2: Update `CorsConfig.java` to permit MCP endpoints**
+- [x] **Step 2: Update `CorsConfig.java` to permit MCP endpoints**
 Add CORS mappings for `/sse` and `/mcp/**`:
 ```java
     @Override
@@ -623,7 +623,7 @@ Add CORS mappings for `/sse` and `/mcp/**`:
     }
 ```
 
-- [ ] **Step 3: Create `McpServerConfig.java`**
+- [x] **Step 3: Create `McpServerConfig.java`**
 Explicitly expose tool callback provider and customize server capabilities:
 ```java
 package com.astra.engine.mcp;
@@ -661,7 +661,7 @@ public class McpServerConfig {
 - Create: `backend/src/test/java/com/astra/engine/mcp/McpServerIntegrationTest.java`
 - Create: `backend/src/test/java/com/astra/engine/mcp/McpToolsTest.java`
 
-- [ ] **Step 1: Write `McpToolsTest.java` testing both tools and security guardrails**
+- [x] **Step 1: Write `McpToolsTest.java` testing both tools and security guardrails**
 Unit test `McpTools` directly with mocked services:
 1. `getFleetState_withoutVehicleId_returnsAllVehicles`: Verifies complete fleet retrieval.
 2. `getFleetState_withVehicleId_returnsFilteredVehicle`: Verifies specific vehicle query.
@@ -671,12 +671,12 @@ Unit test `McpTools` directly with mocked services:
 6. `updateRoute_withBlankVehicleId_throwsIllegalArgumentException`: Verifies empty vehicleId rejected.
 7. `updateRoute_securityNfr21_rawSqlInputTreatedAsLiteral`: Verifies passing SQL injection string `'; DROP TABLE route; --` in `rationale` or `vehicleId` is treated strictly as a string literal and does NOT execute raw SQL.
 
-- [ ] **Step 2: Write `McpServerIntegrationTest.java` testing HTTP/SSE endpoints**
+- [x] **Step 2: Write `McpServerIntegrationTest.java` testing HTTP/SSE endpoints**
 Use `@SpringBootTest` + `@AutoConfigureMockMvc`:
 1. `sseEndpoint_shouldReturnStream`: Perform `GET /sse` and verify HTTP 200 OK with `text/event-stream` content type.
 2. `mcpTools_shouldBeRegisteredInContext`: Verify `McpTools` bean and `ToolCallbackProvider` bean are present in the Spring application context with `getFleetState` and `updateRoute`.
 
-- [ ] **Step 3: Run the new MCP tests**
+- [x] **Step 3: Run the new MCP tests**
 ```bash
 cd /home/jordan/sunway/capstone/astra/backend
 ./mvnw test -Dtest=McpToolsTest
@@ -688,21 +688,21 @@ Expected: All tests pass (green).
 
 ### Task 9: Full Backend Verification and Git Commit Preparation
 
-- [ ] **Step 1: Run the full backend test suite**
+- [x] **Step 1: Run the full backend test suite**
 ```bash
 cd /home/jordan/sunway/capstone/astra/backend
 ./mvnw test
 ```
 Expected: All unit and integration tests pass without failures.
 
-- [ ] **Step 2: Inspect git diff and verify secret hygiene**
+- [x] **Step 2: Inspect git diff and verify secret hygiene**
 ```bash
 git status
 git diff
 ```
 Ensure `frontend/src/environments/environment.ts` is NOT modified or committed.
 
-- [ ] **Step 3: Create atomic git commits**
+- [x] **Step 3: Create atomic git commits**
 1. `git add backend/pom.xml backend/src/main/resources/application.yml`
    `git commit -m "feat(mcp): add Spring AI MCP WebMVC starter dependencies and configuration"`
 2. `git add backend/src/main/java/com/astra/engine/common/GeometryUtils.java backend/src/test/java/com/astra/engine/common/GeometryUtilsTest.java`
