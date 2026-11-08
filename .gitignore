@@ -7,3 +7,21 @@ routing-data/*latest.osm.pbf
 
 # Agent files
 AGENTS.md
+
+# Python MAS & Virtual Environments
+mas/venv/
+mas/.venv/
+venv/
+.venv/
+.env
+.env.*
+!.env.example
+mas/.env
+mas/.env.*
+!mas/.env.example
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
