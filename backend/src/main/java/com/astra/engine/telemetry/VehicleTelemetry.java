@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import org.locationtech.jts.geom.Point;
@@ -13,7 +14,9 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "telemetry_log")
+@Table(name = "telemetry_log", indexes = {
+        @Index(name = "idx_telemetry_vehicle_time", columnList = "vehicleId, recordedAt DESC")
+})
 public class VehicleTelemetry {
 
     @Id
@@ -41,7 +44,8 @@ public class VehicleTelemetry {
     public VehicleTelemetry() {
     }
 
-    public VehicleTelemetry(String vehicleId, String routeId, Point coordinates, Double bearing, Double speedKmh, Instant recordedAt) {
+    public VehicleTelemetry(String vehicleId, String routeId, Point coordinates, Double bearing, Double speedKmh,
+            Instant recordedAt) {
         this.vehicleId = vehicleId;
         this.routeId = routeId;
         this.coordinates = coordinates;
