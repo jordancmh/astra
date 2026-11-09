@@ -1,4 +1,12 @@
 spring:
+  ai:
+    mcp:
+      server:
+        enabled: true
+        name: astra-mcp-server
+        version: 1.0.0
+        type: SYNC
+        protocol: STREAMABLE
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/astra_db}
     username: astra_user
@@ -10,6 +18,7 @@ spring:
     show-sql: true
     properties:
       hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
 
 graphhopper:
