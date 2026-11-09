@@ -78,6 +78,7 @@ class NegotiationCoordinator:
                     f"Single vehicle disruption at {anomaly_id}: {agent.vehicle_id} assigned "
                     f"primary corridor {corridor.name}."
                 ),
+                anomaly_id=anomaly_id,
             )
             return None
 
@@ -109,6 +110,7 @@ class NegotiationCoordinator:
         agent: VehicleAgent,
         corridor: DetourCorridor,
         rationale: str,
+        anomaly_id: str | None = None,
     ) -> dict[str, Any]:
         """
         Commits a detour corridor LineString via AstraMcpClient.update_route.
@@ -134,6 +136,7 @@ class NegotiationCoordinator:
             route_id=route_id,
             coordinates=coords,
             rationale=rationale,
+            anomaly_id=anomaly_id,
         )
 
         # Update local agent status to REROUTING and assign new trajectory
@@ -159,6 +162,7 @@ class NegotiationCoordinator:
                 agent=winner_agent,
                 corridor=winner_corridor,
                 rationale=decision.rationale,
+                anomaly_id=anomaly_id,
             )
 
         # 2. Update Yielding Vehicle Route
@@ -169,6 +173,7 @@ class NegotiationCoordinator:
                 agent=yielding_agent,
                 corridor=yielding_corridor,
                 rationale=decision.rationale,
+                anomaly_id=anomaly_id,
             )
 
         self.decisions_log.append(decision)

@@ -158,6 +158,9 @@ class AstraMcpClient:
         route_id: str,
         coordinates: list[list[float]],
         rationale: str | None = None,
+        distance_meters: float | None = None,
+        estimated_time_ms: int | None = None,
+        anomaly_id: str | None = None,
     ) -> dict[str, Any]:
         """
         Commits a negotiated detour geometry to PostgreSQL via the Spring Boot MCP broker.
@@ -181,4 +184,59 @@ class AstraMcpClient:
         }
         if rationale:
             args["rationale"] = rationale.strip()
+        if distance_meters is not None:
+            args["distanceMeters"] = float(distance_meters)
+        if estimated_time_ms is not None:
+            args["estimatedTimeMs"] = int(estimated_time_ms)
+        if anomaly_id:
+            args["anomalyId"] = anomaly_id.strip()
+
         return await self.call_tool("updateRoute", arguments=args)
+
+    async def recalculate_detour(
+        self,
+        vehicle_id: str,
+        route_id: str,
+        origin_lng: float,
+        origin_lat: float,
+        dest_lng: float,
+        dest_lat: float,
+        avoid_polygon: list[list[float]] | None = None,
+        penalty_factor: float = 0.0,
+        rationale: str | None = None,
+        anomaly_id: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Dynamically recalculates a vehicle detour around an anomaly using GraphHopper
+        obstacle avoidance and commits the route to PostGIS via the Spring Boot MCP broker.
+        """
+        if not vehicle_id or not vehicle_id.strip():
+            raise ValueError("vehicle_id cannot be empty")
+        if not route_id or not route_id.strip():
+            raise ValueError("route_id cannot be empty")
+
+        # Validate origin & destination coordinates in Klang Valley bounds
+        Coordinates.model_validate([origin_lng, origin_lat])
+        Coordinates.model_validate([dest_lng, dest_lat])
+
+        if avoid_polygon:
+            for pt in avoid_polygon:
+                Coordinates.model_validate(pt)
+
+        args: dict[str, Any] = {
+            "vehicleId": vehicle_id.strip(),
+            "routeId": route_id.strip(),
+            "originLng": origin_lng,
+            "originLat": origin_lat,
+            "destLng": dest_lng,
+            "destLat": dest_lat,
+            "penaltyFactor": float(penalty_factor),
+        }
+        if avoid_polygon:
+            args["avoidPolygon"] = avoid_polygon
+        if rationale:
+            args["rationale"] = rationale.strip()
+        if anomaly_id:
+            args["anomalyId"] = anomaly_id.strip()
+
+        return await self.call_tool("recalculateDetour", arguments=args)
