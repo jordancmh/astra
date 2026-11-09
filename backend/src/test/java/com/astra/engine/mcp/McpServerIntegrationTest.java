@@ -1,5 +1,6 @@
 package com.astra.engine.mcp;
 
+import com.astra.engine.routing.NegotiationEventRepository;
 import com.astra.engine.routing.RouteRepository;
 import com.astra.engine.telemetry.VehicleTelemetryRepository;
 import io.modelcontextprotocol.server.McpSyncServer;
@@ -42,18 +43,21 @@ class McpServerIntegrationTest {
     @MockitoBean
     private RouteRepository routeRepository;
 
+    @MockitoBean
+    private NegotiationEventRepository negotiationEventRepository;
+
     @Test
     void contextLoads_withMcpServerAndTools() {
         assertThat(mcpTools).isNotNull();
         assertThat(mcpSyncServer).isNotNull();
 
         List<McpSchema.Tool> tools = mcpSyncServer.listTools();
-        assertThat(tools).hasSize(2);
+        assertThat(tools).hasSize(3);
 
         List<String> registeredTools = tools.stream()
                 .map(McpSchema.Tool::name)
                 .toList();
-        assertThat(registeredTools).containsExactlyInAnyOrder("getFleetState", "updateRoute");
+        assertThat(registeredTools).containsExactlyInAnyOrder("getFleetState", "updateRoute", "recalculateDetour");
         assertThat(mcpSyncServer.getServerInfo().name()).isEqualTo("astra-mcp-server");
     }
 

@@ -20,4 +20,18 @@ public record GraphHopperRouteRequest(
                 null
         );
     }
+
+    public static GraphHopperRouteRequest withCustomModel(
+            double originLng, double originLat,
+            double destLng, double destLat,
+            GraphHopperCustomModel customModel
+    ) {
+        return new GraphHopperRouteRequest(
+                "car",
+                List.of(List.of(originLng, originLat), List.of(destLng, destLat)),
+                false,
+                true,
+                customModel
+        );
+    }
 }

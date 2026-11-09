@@ -96,6 +96,81 @@ class McpToolsTest {
     }
 
     @Test
+    void updateRoute_withExtendedMetricsAndAnomalyId_callsOverloadedServiceMethod() {
+        List<List<Double>> validCoords = List.of(
+                List.of(101.6839, 3.1390),
+                List.of(101.5540, 3.0755)
+        );
+
+        RouteUpdateResult updateResult = new RouteUpdateResult(
+                "COMMITTED",
+                "V-001",
+                "RT-001",
+                2,
+                new GeoJsonLineString(validCoords),
+                35000.0,
+                2100000L,
+                Instant.now()
+        );
+        when(routingService.updateRoute(
+                eq("V-001"), eq("RT-001"), eq(validCoords), eq(35000.0), eq(2100000L),
+                eq("Detour rationale"), eq("D-001")
+        )).thenReturn(updateResult);
+
+        String json = mcpTools.updateRoute(
+                "V-001", "RT-001", validCoords, "Detour rationale", 35000.0, 2100000L, "D-001"
+        );
+
+        assertThat(json).contains("\"status\":\"COMMITTED\"");
+        assertThat(json).contains("\"distanceMeters\":35000.0");
+        assertThat(json).contains("\"estimatedTimeMs\":2100000");
+        verify(routingService).updateRoute(
+                eq("V-001"), eq("RT-001"), eq(validCoords), eq(35000.0), eq(2100000L),
+                eq("Detour rationale"), eq("D-001")
+        );
+    }
+
+    @Test
+    void recalculateDetour_withValidParameters_returnsCommittedDetourResult() {
+        List<List<Double>> avoidPolygon = List.of(
+                List.of(101.615, 3.112),
+                List.of(101.627, 3.112),
+                List.of(101.627, 3.124),
+                List.of(101.615, 3.124),
+                List.of(101.615, 3.112)
+        );
+
+        RouteUpdateResult detourResult = new RouteUpdateResult(
+                "COMMITTED",
+                "V-004",
+                "RT-004",
+                3,
+                new GeoJsonLineString(List.of(List.of(101.4496, 3.0430), List.of(101.5500, 3.0900), List.of(101.7116, 3.1579))),
+                41200.0,
+                2450000L,
+                Instant.now()
+        );
+
+        when(routingService.recalculateAndCommitDetour(
+                eq("V-004"), eq("RT-004"), eq(101.4496), eq(3.0430), eq(101.7116), eq(3.1579),
+                eq(avoidPolygon), eq(0.0), eq("Circumnavigate closure D-001"), eq("D-001")
+        )).thenReturn(detourResult);
+
+        String json = mcpTools.recalculateDetour(
+                "V-004", "RT-004", 101.4496, 3.0430, 101.7116, 3.1579,
+                avoidPolygon, 0.0, "Circumnavigate closure D-001", "D-001"
+        );
+
+        assertThat(json).contains("\"status\":\"COMMITTED\"");
+        assertThat(json).contains("\"vehicleId\":\"V-004\"");
+        assertThat(json).contains("\"distanceMeters\":41200.0");
+        verify(routingService).recalculateAndCommitDetour(
+                eq("V-004"), eq("RT-004"), eq(101.4496), eq(3.0430), eq(101.7116), eq(3.1579),
+                eq(avoidPolygon), eq(0.0), eq("Circumnavigate closure D-001"), eq("D-001")
+        );
+    }
+
+    @Test
     void updateRoute_withOutOfBoundsCoordinates_throwsIllegalArgumentException() {
         List<List<Double>> outOfBoundsCoords = List.of(
                 List.of(101.6839, 3.1390),
@@ -166,12 +241,12 @@ class McpToolsTest {
     }
 
     @Test
-    void mcpTools_shouldProduceTwoMcpToolSpecifications() {
+    void mcpTools_shouldProduceThreeMcpToolSpecifications() {
         List<McpServerFeatures.SyncToolSpecification> toolSpecs =
                 org.springframework.ai.mcp.annotation.spring.SyncMcpAnnotationProviders.toolSpecifications(List.of(mcpTools));
 
-        assertThat(toolSpecs).hasSize(2);
+        assertThat(toolSpecs).hasSize(3);
         List<String> toolNames = toolSpecs.stream().map(s -> s.tool().name()).toList();
-        assertThat(toolNames).containsExactlyInAnyOrder("getFleetState", "updateRoute");
+        assertThat(toolNames).containsExactlyInAnyOrder("getFleetState", "updateRoute", "recalculateDetour");
     }
 }

@@ -25,6 +25,26 @@ public class GraphHopperClient {
                 originLng, originLat, destLng, destLat
         );
 
+        return executeRoute(request, originLng, originLat, destLng, destLat);
+    }
+
+    public GraphHopperRouteResponse.GraphHopperPath routeWithCustomModel(
+            double originLng, double originLat,
+            double destLng, double destLat,
+            GraphHopperCustomModel customModel
+    ) {
+        GraphHopperRouteRequest request = GraphHopperRouteRequest.withCustomModel(
+                originLng, originLat, destLng, destLat, customModel
+        );
+
+        return executeRoute(request, originLng, originLat, destLng, destLat);
+    }
+
+    private GraphHopperRouteResponse.GraphHopperPath executeRoute(
+            GraphHopperRouteRequest request,
+            double originLng, double originLat,
+            double destLng, double destLat
+    ) {
         try {
             GraphHopperRouteResponse response = restClient.post()
                     .uri("/route")
