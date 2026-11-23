@@ -1,0 +1,12 @@
+:host {
+  display: block;
+}
+
+.anomaly-action-bar-container {
+  width: 720px;
+  max-width: calc(100vw - 2rem);
+}
+
+.anomaly-action-bar-container.compact {
+  width: 380px;
+}
