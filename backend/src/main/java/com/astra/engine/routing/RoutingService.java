@@ -25,6 +25,16 @@ public class RoutingService {
         this.negotiationEventRepository = negotiationEventRepository;
     }
 
+    @Transactional(readOnly = true)
+    public List<String> findIntersectingRouteIds(org.locationtech.jts.geom.Geometry geometry) {
+        if (geometry == null) {
+            return List.of();
+        }
+        return routeRepository.findRoutesIntersecting(geometry).stream()
+                .map(Route::getId)
+                .toList();
+    }
+
     public RouteCalculateResponse calculateRoute(RouteCalculateRequest request) {
         GraphHopperRouteResponse.GraphHopperPath path = graphHopperClient.route(
                 request.originLng(),

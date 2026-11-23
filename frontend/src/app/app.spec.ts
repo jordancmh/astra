@@ -1,4 +1,6 @@
 import { TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { App } from './app';
 import { RoutingService } from './core/services/routing.service';
 import mapboxgl from 'mapbox-gl';
@@ -15,6 +17,7 @@ describe('App', () => {
       addLayer: jasmine.createSpy('addLayer'),
       getLayer: jasmine.createSpy('getLayer').and.returnValue(undefined),
       fitBounds: jasmine.createSpy('fitBounds'),
+      getCanvas: jasmine.createSpy('getCanvas').and.returnValue({ style: { cursor: '' } }),
     } as any);
     spyOn(mapboxgl, 'NavigationControl').and.returnValue({} as any);
     spyOn(mapboxgl, 'AttributionControl').and.returnValue({} as any);
@@ -23,6 +26,8 @@ describe('App', () => {
     await TestBed.configureTestingModule({
       imports: [App],
       providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
         {
           provide: RoutingService,
           useValue: {

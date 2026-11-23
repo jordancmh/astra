@@ -4,8 +4,10 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.Polygon;
 import org.locationtech.jts.geom.PrecisionModel;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public final class GeometryUtils {
@@ -48,6 +50,51 @@ public final class GeometryUtils {
         }
 
         return GEOMETRY_FACTORY.createLineString(jtsCoordinates);
+    }
+
+    public static Polygon createGeodesicCirclePolygon(double centerLng, double centerLat, double radiusMeters) {
+        if (!isWithinKlangValley(centerLng, centerLat)) {
+            throw new IllegalArgumentException(String.format(
+                    "Center [%f, %f] is outside Klang Valley bounding box (Lat: %.2f..%.2f, Lng: %.2f..%.2f)",
+                    centerLng, centerLat, MIN_LAT, MAX_LAT, MIN_LNG, MAX_LNG));
+        }
+        if (radiusMeters <= 0) {
+            throw new IllegalArgumentException("radiusMeters must be positive");
+        }
+
+        double latDegreeMeters = 110574.0;
+        double lngDegreeMeters = 111157.0;
+
+        double dLat = radiusMeters / latDegreeMeters;
+        double dLng = radiusMeters / lngDegreeMeters;
+
+        int points = 16;
+        Coordinate[] coords = new Coordinate[points + 1];
+        for (int i = 0; i < points; i++) {
+            double angle = 2.0 * Math.PI * i / points;
+            double lng = centerLng + dLng * Math.cos(angle);
+            double lat = centerLat + dLat * Math.sin(angle);
+
+            lng = Math.max(MIN_LNG, Math.min(MAX_LNG, lng));
+            lat = Math.max(MIN_LAT, Math.min(MAX_LAT, lat));
+
+            coords[i] = new Coordinate(lng, lat);
+        }
+        coords[points] = new Coordinate(coords[0].x, coords[0].y);
+
+        return GEOMETRY_FACTORY.createPolygon(coords);
+    }
+
+    public static GeoJsonPolygon toGeoJsonPolygon(Polygon polygon) {
+        if (polygon == null) {
+            return null;
+        }
+        Coordinate[] exterior = polygon.getExteriorRing().getCoordinates();
+        List<List<Double>> ring = new ArrayList<>();
+        for (Coordinate c : exterior) {
+            ring.add(List.of(c.x, c.y));
+        }
+        return GeoJsonPolygon.ofSingleRing(ring);
     }
 
     public static boolean isWithinKlangValley(double longitude, double latitude) {

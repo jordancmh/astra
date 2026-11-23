@@ -1,5 +1,6 @@
 package com.astra.engine.mcp;
 
+import com.astra.engine.anomaly.NetworkAnomalyRepository;
 import com.astra.engine.routing.NegotiationEventRepository;
 import com.astra.engine.routing.RouteRepository;
 import com.astra.engine.telemetry.VehicleTelemetryRepository;
@@ -45,6 +46,9 @@ class McpServerIntegrationTest {
 
     @MockitoBean
     private NegotiationEventRepository negotiationEventRepository;
+
+    @MockitoBean
+    private NetworkAnomalyRepository networkAnomalyRepository;
 
     @Test
     void contextLoads_withMcpServerAndTools() {

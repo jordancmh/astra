@@ -1,5 +1,7 @@
 package com.astra.engine.mcp;
 
+import com.astra.engine.anomaly.AnomalyService;
+import com.astra.engine.anomaly.dto.AnomalyDto;
 import com.astra.engine.routing.RouteUpdateResult;
 import com.astra.engine.routing.RoutingService;
 import com.astra.engine.telemetry.TelemetryService;
@@ -17,13 +19,16 @@ public class McpTools {
 
     private final TelemetryService telemetryService;
     private final RoutingService routingService;
+    private final AnomalyService anomalyService;
     private final ObjectMapper objectMapper;
 
     public McpTools(TelemetryService telemetryService,
                     RoutingService routingService,
+                    AnomalyService anomalyService,
                     ObjectMapper objectMapper) {
         this.telemetryService = telemetryService;
         this.routingService = routingService;
+        this.anomalyService = anomalyService;
         this.objectMapper = objectMapper;
     }
 
@@ -33,10 +38,12 @@ public class McpTools {
             String vehicleId) {
         try {
             List<VehicleStatusDto> fleet = telemetryService.getFleetState(vehicleId);
+            List<AnomalyDto> anomalies = anomalyService != null ? anomalyService.getActiveAnomalies() : List.of();
             return objectMapper.writeValueAsString(Map.of(
                     "status", "SUCCESS",
                     "count", fleet.size(),
-                    "vehicles", fleet
+                    "vehicles", fleet,
+                    "anomalies", anomalies
             ));
         } catch (Exception e) {
             throw new RuntimeException("Failed to fetch fleet state: " + e.getMessage(), e);
