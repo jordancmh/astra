@@ -3,10 +3,14 @@
   [class.compact]="!isExpanded"
 >
   <!-- Header Bar -->
-  <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800/80">
-    <div class="flex items-center gap-3">
+  <div
+    class="flex items-center justify-between px-4 py-3 gap-6"
+    [class.border-b]="isExpanded"
+    [class.border-slate-800/80]="isExpanded"
+  >
+    <div class="flex items-center gap-3 shrink-0">
       <!-- Status Indicator Pulse -->
-      <div class="relative flex items-center justify-center">
+      <div class="relative flex items-center justify-center shrink-0">
         @if (anomalyService.hasActiveAnomalies()) {
           <span class="absolute inline-flex h-3 w-3 animate-ping rounded-full bg-rose-400 opacity-75"></span>
           <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-rose-500"></span>
@@ -15,37 +19,35 @@
         }
       </div>
 
-      <div>
-        <div class="flex items-center gap-2">
-          <span class="font-semibold text-sm tracking-wide text-white">Disruption Injection</span>
-          <span
-            class="text-[10px] font-mono px-2 py-0.5 rounded-full uppercase tracking-wider"
-            [ngClass]="
-              anomalyService.hasActiveAnomalies()
-                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-            "
-          >
-            {{
-              anomalyService.hasActiveAnomalies()
-                ? anomalyService.anomalyCount() + ' Active'
-                : 'Nominal'
-            }}
-          </span>
-        </div>
+      <div class="flex items-center gap-2.5 whitespace-nowrap">
+        <span class="font-semibold text-sm tracking-wide text-white whitespace-nowrap">Disruption Injection</span>
+        <span
+          class="text-[10px] font-mono px-2.5 py-0.5 rounded-full uppercase tracking-wider whitespace-nowrap shrink-0"
+          [ngClass]="
+            anomalyService.hasActiveAnomalies()
+              ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+              : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+          "
+        >
+          {{
+            anomalyService.hasActiveAnomalies()
+              ? anomalyService.anomalyCount() + ' Active'
+              : 'Nominal'
+          }}
+        </span>
       </div>
     </div>
 
     <!-- Actions & Collapse Toggle -->
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-2.5 shrink-0">
       @if (anomalyService.hasActiveAnomalies()) {
         <button
           type="button"
           (click)="clearAll()"
-          class="clear-all-btn text-xs font-medium px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 transition-colors cursor-pointer flex items-center gap-1.5"
+          class="clear-all-btn text-xs font-medium px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
           title="Clear all active disruptions from network"
         >
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
           </svg>
           Clear All ({{ anomalyService.anomalyCount() }})
@@ -55,7 +57,7 @@
       <button
         type="button"
         (click)="toggleExpanded()"
-        class="toggle-expand-btn p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+        class="toggle-expand-btn p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer shrink-0"
         [title]="isExpanded ? 'Minimize Panel' : 'Expand Panel'"
       >
         <svg
@@ -93,7 +95,7 @@
             >
               <div class="flex items-center gap-1.5">
                 <span
-                  class="w-2 h-2 rounded-full"
+                  class="w-2 h-2 rounded-full shrink-0"
                   [style.backgroundColor]="anomalyTypeConfig[type].color"
                 ></span>
                 <span class="truncate">{{ anomalyTypeConfig[type].label }}</span>
@@ -144,11 +146,11 @@
                 : 'bg-slate-800/60 border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-white'
             "
           >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            {{ anomalyService.isDroppingOnMap() ? 'Click Map Canvas...' : 'Drop on Map' }}
+            <span class="whitespace-nowrap">{{ anomalyService.isDroppingOnMap() ? 'Click Map Canvas...' : 'Drop on Map' }}</span>
           </button>
         </div>
 
@@ -198,7 +200,7 @@
       <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-slate-800">
         <!-- Severity selector -->
         <div class="flex items-center gap-1.5 w-full sm:w-auto">
-          <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mr-1">
+          <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mr-1 whitespace-nowrap">
             Severity:
           </span>
           @for (sev of severities; track sev) {
@@ -222,19 +224,19 @@
           type="button"
           (click)="submitInjection()"
           [disabled]="isSubmitting || anomalyService.isLoading()"
-          class="inject-btn w-full sm:w-auto px-5 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center justify-center gap-2"
+          class="inject-btn w-full sm:w-auto px-5 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white shadow-lg shadow-cyan-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap"
         >
           @if (isSubmitting || anomalyService.isLoading()) {
-            <svg class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+            <svg class="animate-spin h-3.5 w-3.5 text-white shrink-0" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
             </svg>
-            Injecting...
+            <span>Injecting...</span>
           } @else {
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
-            Inject Disruption
+            <span>Inject Disruption</span>
           }
         </button>
       </div>

@@ -1,12 +1,29 @@
 :host {
   display: block;
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  pointer-events: none;
 }
 
 .anomaly-action-bar-container {
   width: 720px;
   max-width: calc(100vw - 2rem);
+  pointer-events: auto;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(51, 65, 85, 0.8);
+  border-radius: 1rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+  color: #f1f5f9;
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.25s ease;
 }
 
 .anomaly-action-bar-container.compact {
-  width: 380px;
+  width: max-content;
+  min-width: 480px;
+  max-width: calc(100vw - 2rem);
 }
