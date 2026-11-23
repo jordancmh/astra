@@ -61,11 +61,35 @@
       </section>
 
       <section class="sidebar-panel">
-        <h2 class="panel-title"><span class="panel-icon">⚠️</span>Network Anomalies</h2>
-        <div class="panel-empty-state">
-          <span>No anomalies detected</span>
-          <small>Monitoring active</small>
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="panel-title !mb-0"><span class="panel-icon">⚠️</span>Network Anomalies</h2>
+          @if (anomalyService.hasActiveAnomalies()) {
+            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40">
+              {{ anomalyService.anomalyCount() }}
+            </span>
+          }
         </div>
+
+        @if (anomalyService.hasActiveAnomalies()) {
+          <div class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+            @for (anomaly of anomalyService.activeAnomalies(); track anomaly.id) {
+              <div class="flex items-center justify-between p-2 rounded-lg bg-slate-900/60 border border-slate-800 text-xs">
+                <div>
+                  <div class="font-medium text-slate-200">{{ anomaly.anomalyType }}</div>
+                  <div class="text-[10px] text-slate-400 font-mono">{{ anomaly.id }} · {{ anomaly.radiusMeters }}m</div>
+                </div>
+                <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
+                  {{ anomaly.severity }}
+                </span>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="panel-empty-state">
+            <span>No anomalies detected</span>
+            <small>Monitoring active</small>
+          </div>
+        }
       </section>
 
       <section class="sidebar-panel legend-panel">
@@ -80,8 +104,9 @@
     </aside>
 
     <!-- Map Viewport -->
-    <main class="map-viewport">
+    <main class="map-viewport relative">
       <app-map-view></app-map-view>
+      <app-anomaly-action-bar class="absolute top-4 left-1/2 -translate-x-1/2 z-20 pointer-events-none"></app-anomaly-action-bar>
       <div class="map-hud-badge">
         <span class="hud-label">BOUNDING REGION</span>
         <span class="hud-value">Lat 2.90–3.30 · Lng 101.40–101.90</span>
