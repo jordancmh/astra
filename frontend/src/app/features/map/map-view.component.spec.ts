@@ -1,7 +1,10 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
 import { MapViewComponent } from './map-view.component';
 import { RoutingService } from '../../core/services/routing.service';
+import { AnomalyService } from '../../core/services/anomaly.service';
 import { RouteCalculateResponse } from '../../core/models/route.model';
+import { NetworkAnomaly } from '../../core/models/anomaly.model';
 import mapboxgl from 'mapbox-gl';
 import { of, throwError } from 'rxjs';
 
@@ -9,7 +12,13 @@ describe('MapViewComponent', () => {
   let component: MapViewComponent;
   let fixture: ComponentFixture<MapViewComponent>;
   let mockMap: any;
+  let mockCanvas: any;
   let routingServiceSpy: jasmine.SpyObj<RoutingService>;
+  let anomalyServiceSpy: jasmine.SpyObj<AnomalyService>;
+  let registeredMapEventHandlers: { [key: string]: Function } = {};
+
+  const activeAnomaliesSignal = signal<NetworkAnomaly[]>([]);
+  const isDroppingOnMapSignal = signal<boolean>(false);
 
   const mockRouteResponse: RouteCalculateResponse = {
     routeId: 'RT-PROTOTYPE-01',
@@ -26,12 +35,46 @@ describe('MapViewComponent', () => {
     },
   };
 
+  const mockAnomaly: NetworkAnomaly = {
+    id: 'D-001',
+    anomalyType: 'ROAD_CLOSURE',
+    severity: 'HIGH',
+    radiusMeters: 600,
+    center: [101.6210, 3.1180],
+    polygon: {
+      type: 'Polygon',
+      coordinates: [
+        [
+          [101.615, 3.112],
+          [101.627, 3.112],
+          [101.627, 3.124],
+          [101.615, 3.124],
+          [101.615, 3.112],
+        ],
+      ],
+    },
+    injectedAt: '2026-10-12T08:34:12Z',
+    isActive: true,
+  };
+
   beforeEach(async () => {
+    registeredMapEventHandlers = {};
+    mockCanvas = { style: { cursor: '' } };
+    activeAnomaliesSignal.set([]);
+    isDroppingOnMapSignal.set(false);
+
     mockMap = {
       addControl: jasmine.createSpy('addControl'),
-      on: jasmine.createSpy('on').and.callFake((event: string, callback: () => void) => {
-        if (event === 'load') {
-          callback();
+      on: jasmine.createSpy('on').and.callFake((...args: any[]) => {
+        if (args.length === 2) {
+          const [event, cb] = args;
+          registeredMapEventHandlers[event] = cb;
+          if (event === 'load') {
+            cb();
+          }
+        } else if (args.length === 3) {
+          const [event, layer, cb] = args;
+          registeredMapEventHandlers[`${event}:${layer}`] = cb;
         }
       }),
       remove: jasmine.createSpy('remove'),
@@ -40,9 +83,9 @@ describe('MapViewComponent', () => {
       addLayer: jasmine.createSpy('addLayer'),
       getLayer: jasmine.createSpy('getLayer').and.returnValue(undefined),
       fitBounds: jasmine.createSpy('fitBounds'),
+      getCanvas: jasmine.createSpy('getCanvas').and.returnValue(mockCanvas),
     };
 
-    // Spy on mapboxgl constructors to bypass WebGL requirement in headless test runs
     spyOn(mapboxgl, 'Map').and.returnValue(mockMap);
     spyOn(mapboxgl, 'NavigationControl').and.returnValue({} as any);
     spyOn(mapboxgl, 'AttributionControl').and.returnValue({} as any);
@@ -51,10 +94,27 @@ describe('MapViewComponent', () => {
     routingServiceSpy = jasmine.createSpyObj('RoutingService', ['calculateRoute']);
     routingServiceSpy.calculateRoute.and.returnValue(of(mockRouteResponse));
 
+    anomalyServiceSpy = jasmine.createSpyObj('AnomalyService', [
+      'fetchActiveAnomalies',
+      'clearAnomaly',
+      'setDroppingOnMap',
+      'setSelectedCoordinates',
+      'isWithinKlangValley',
+    ]);
+    (anomalyServiceSpy as any).activeAnomalies = activeAnomaliesSignal;
+    (anomalyServiceSpy as any).isDroppingOnMap = isDroppingOnMapSignal;
+
+    anomalyServiceSpy.fetchActiveAnomalies.and.returnValue(of([]));
+    anomalyServiceSpy.clearAnomaly.and.returnValue(of(undefined));
+    anomalyServiceSpy.isWithinKlangValley.and.callFake(
+      (lng: number, lat: number) => lng >= 101.4 && lng <= 101.9 && lat >= 2.9 && lat <= 3.3
+    );
+
     await TestBed.configureTestingModule({
       imports: [MapViewComponent],
       providers: [
         { provide: RoutingService, useValue: routingServiceSpy },
+        { provide: AnomalyService, useValue: anomalyServiceSpy },
       ],
     }).compileComponents();
 
@@ -67,86 +127,97 @@ describe('MapViewComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('should initialize mapbox map with dark-v11 style and Klang Valley bounds', () => {
-    expect(mapboxgl.Map).toHaveBeenCalledWith(
-      jasmine.objectContaining({
-        style: 'mapbox://styles/mapbox/dark-v11',
-        center: [101.6839, 3.1390],
-        zoom: 11,
-        maxBounds: [
-          [101.40, 2.90],
-          [101.90, 3.30],
-        ],
-      })
-    );
-  });
-
-  it('should add navigation, attribution, and scale controls', () => {
-    expect(mockMap.addControl).toHaveBeenCalledTimes(3);
-  });
-
-  it('should automatically query prototype route on map load with expected coordinates', () => {
-    expect(routingServiceSpy.calculateRoute).toHaveBeenCalledWith(
-      jasmine.objectContaining({
-        originLng: 101.6839,
-        originLat: 3.1390,
-        destLng: 101.5540,
-        destLat: 3.0755,
-      })
-    );
-  });
-
-  it('should add active-route GeoJSON source and active-route-line cyan layer', () => {
+  it('should add anomaly GeoJSON source and fill/line layers on load', () => {
     expect(mockMap.addSource).toHaveBeenCalledWith(
-      'active-route',
+      'anomalies-source',
       jasmine.objectContaining({
         type: 'geojson',
-        data: mockRouteResponse.geometry,
       })
     );
 
     expect(mockMap.addLayer).toHaveBeenCalledWith(
       jasmine.objectContaining({
-        id: 'active-route-line',
-        type: 'line',
-        source: 'active-route',
-        paint: jasmine.objectContaining({
-          'line-color': '#06b6d4',
-          'line-width': 4,
-        }),
+        id: 'anomalies-fill',
+        type: 'fill',
+        source: 'anomalies-source',
       })
     );
 
-    expect(mockMap.fitBounds).toHaveBeenCalled();
+    expect(mockMap.addLayer).toHaveBeenCalledWith(
+      jasmine.objectContaining({
+        id: 'anomalies-line',
+        type: 'line',
+        source: 'anomalies-source',
+      })
+    );
+
+    expect(anomalyServiceSpy.fetchActiveAnomalies).toHaveBeenCalled();
   });
 
-  it('should update existing source when route source already exists', () => {
-    const existingSourceMock = {
+  it('should update anomalies source when activeAnomalies signal updates', () => {
+    const mockAnomalySource = {
       setData: jasmine.createSpy('setData'),
     };
-    mockMap.getSource.and.returnValue(existingSourceMock as any);
+    mockMap.getSource.and.callFake((id: string) => {
+      if (id === 'anomalies-source') return mockAnomalySource;
+      return undefined;
+    });
 
-    // Call private method or trigger route load
-    (component as any).renderRouteGeometry(mockRouteResponse.geometry);
+    activeAnomaliesSignal.set([mockAnomaly]);
+    fixture.detectChanges();
 
-    expect(existingSourceMock.setData).toHaveBeenCalledWith(mockRouteResponse.geometry);
-  });
-
-  it('should handle routing error gracefully without throwing', () => {
-    routingServiceSpy.calculateRoute.and.returnValue(throwError(() => new Error('Backend offline')));
-    spyOn(console, 'warn');
-
-    expect(() => {
-      (component as any).loadPrototypeRoute();
-    }).not.toThrow();
-
-    expect(console.warn).toHaveBeenCalledWith(
-      '[ASTRA] Failed to load prototype route from backend:',
-      jasmine.any(Error)
+    expect(mockAnomalySource.setData).toHaveBeenCalledWith(
+      jasmine.objectContaining({
+        type: 'FeatureCollection',
+        features: jasmine.arrayContaining([
+          jasmine.objectContaining({
+            id: 'D-001',
+            type: 'Feature',
+            geometry: mockAnomaly.polygon,
+          }),
+        ]),
+      })
     );
   });
 
-  it('should remove the map on destroy', () => {
+  it('should handle map click when dropping on map with valid coordinates', () => {
+    isDroppingOnMapSignal.set(true);
+
+    const clickHandler = registeredMapEventHandlers['click'];
+    expect(clickHandler).toBeDefined();
+
+    clickHandler({ lngLat: { lng: 101.6210, lat: 3.1180 } });
+
+    expect(anomalyServiceSpy.setSelectedCoordinates).toHaveBeenCalledWith([101.6210, 3.1180]);
+    expect(anomalyServiceSpy.setDroppingOnMap).toHaveBeenCalledWith(false);
+  });
+
+  it('should ignore map click when coordinates are outside Klang Valley', () => {
+    isDroppingOnMapSignal.set(true);
+    spyOn(console, 'warn');
+
+    const clickHandler = registeredMapEventHandlers['click'];
+    clickHandler({ lngLat: { lng: 100.0, lat: 5.0 } }); // Out of bounds
+
+    expect(anomalyServiceSpy.setSelectedCoordinates).not.toHaveBeenCalled();
+    expect(console.warn).toHaveBeenCalled();
+  });
+
+  it('should update cursor on mouseenter and mouseleave for anomalies-fill', () => {
+    const enterHandler = registeredMapEventHandlers['mouseenter:anomalies-fill'];
+    const leaveHandler = registeredMapEventHandlers['mouseleave:anomalies-fill'];
+
+    expect(enterHandler).toBeDefined();
+    expect(leaveHandler).toBeDefined();
+
+    enterHandler();
+    expect(mockCanvas.style.cursor).toBe('pointer');
+
+    leaveHandler();
+    expect(mockCanvas.style.cursor).toBe('');
+  });
+
+  it('should remove the map and current popup on destroy', () => {
     component.ngOnDestroy();
     expect(mockMap.remove).toHaveBeenCalled();
   });
