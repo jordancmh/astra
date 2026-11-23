@@ -4,15 +4,22 @@ import com.astra.engine.anomaly.AnomalyService;
 import com.astra.engine.anomaly.dto.AnomalyDto;
 import com.astra.engine.routing.RouteUpdateResult;
 import com.astra.engine.routing.RoutingService;
+import com.astra.engine.telemetry.FleetService;
 import com.astra.engine.telemetry.TelemetryService;
 import com.astra.engine.telemetry.VehicleStatusDto;
+import com.astra.engine.telemetry.dto.FleetRouteDto;
+import com.astra.engine.telemetry.dto.FleetStateResponse;
+import com.astra.engine.telemetry.dto.FleetVehicleDto;
 import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class McpTools {
@@ -20,15 +27,26 @@ public class McpTools {
     private final TelemetryService telemetryService;
     private final RoutingService routingService;
     private final AnomalyService anomalyService;
+    private final FleetService fleetService;
     private final ObjectMapper objectMapper;
 
     public McpTools(TelemetryService telemetryService,
                     RoutingService routingService,
                     AnomalyService anomalyService,
                     ObjectMapper objectMapper) {
+        this(telemetryService, routingService, anomalyService, null, objectMapper);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public McpTools(TelemetryService telemetryService,
+                    RoutingService routingService,
+                    AnomalyService anomalyService,
+                    FleetService fleetService,
+                    ObjectMapper objectMapper) {
         this.telemetryService = telemetryService;
         this.routingService = routingService;
         this.anomalyService = anomalyService;
+        this.fleetService = fleetService;
         this.objectMapper = objectMapper;
     }
 
@@ -37,12 +55,64 @@ public class McpTools {
             @McpToolParam(description = "Optional vehicle ID (e.g. V-001) to filter for a single vehicle. If omitted, returns all fleet vehicles.", required = false)
             String vehicleId) {
         try {
-            List<VehicleStatusDto> fleet = telemetryService.getFleetState(vehicleId);
+            List<Map<String, Object>> vehicles = new ArrayList<>();
             List<AnomalyDto> anomalies = anomalyService != null ? anomalyService.getActiveAnomalies() : List.of();
+
+            if (fleetService != null) {
+                FleetStateResponse fleetState = fleetService.getFleetState();
+                if (fleetState != null && fleetState.vehicles() != null && !fleetState.vehicles().isEmpty()) {
+                    Map<String, List<List<Double>>> routeTrajectories = fleetState.routes() != null
+                            ? fleetState.routes().stream()
+                                .filter(r -> r.geometry() != null && r.geometry().coordinates() != null)
+                                .collect(Collectors.toMap(FleetRouteDto::id, r -> r.geometry().coordinates(), (r1, r2) -> r1))
+                            : Map.of();
+
+                    for (FleetVehicleDto v : fleetState.vehicles()) {
+                        if (vehicleId != null && !vehicleId.isBlank() && !v.id().equalsIgnoreCase(vehicleId.trim())) {
+                            continue;
+                        }
+                        Map<String, Object> map = new HashMap<>();
+                        map.put("vehicleId", v.id());
+                        map.put("id", v.id());
+                        map.put("routeId", v.routeId());
+                        map.put("latitude", v.latitude());
+                        map.put("longitude", v.longitude());
+                        map.put("bearing", v.bearing());
+                        map.put("speedKmh", v.speedKmh());
+                        map.put("cargoPriority", v.cargoPriority());
+                        map.put("status", v.status());
+                        map.put("intersectedAnomalyId", v.intersectedAnomalyId());
+                        map.put("upcomingTrajectory", v.routeId() != null ? routeTrajectories.getOrDefault(v.routeId(), List.of()) : List.of());
+                        map.put("updatedAt", v.updatedAt() != null ? v.updatedAt().toString() : null);
+                        vehicles.add(map);
+                    }
+                }
+            }
+
+            if (vehicles.isEmpty() && telemetryService != null) {
+                List<VehicleStatusDto> legacyFleet = telemetryService.getFleetState(vehicleId);
+                for (VehicleStatusDto v : legacyFleet) {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("vehicleId", v.vehicleId());
+                    map.put("id", v.vehicleId());
+                    map.put("routeId", v.routeId());
+                    map.put("latitude", v.latitude());
+                    map.put("longitude", v.longitude());
+                    map.put("bearing", v.bearing());
+                    map.put("speedKmh", v.speedKmh());
+                    map.put("cargoPriority", 3);
+                    map.put("status", v.status());
+                    map.put("intersectedAnomalyId", null);
+                    map.put("upcomingTrajectory", List.of());
+                    map.put("updatedAt", v.recordedAt() != null ? v.recordedAt().toString() : null);
+                    vehicles.add(map);
+                }
+            }
+
             return objectMapper.writeValueAsString(Map.of(
                     "status", "SUCCESS",
-                    "count", fleet.size(),
-                    "vehicles", fleet,
+                    "count", vehicles.size(),
+                    "vehicles", vehicles,
                     "anomalies", anomalies
             ));
         } catch (Exception e) {

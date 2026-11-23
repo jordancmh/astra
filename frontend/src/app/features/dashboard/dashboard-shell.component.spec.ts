@@ -1,8 +1,11 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { DashboardShellComponent } from './dashboard-shell.component';
 import { RoutingService } from '../../core/services/routing.service';
 import { AnomalyService } from '../../core/services/anomaly.service';
+import { FleetTelemetryService } from '../../core/services/fleet-telemetry.service';
 import { NetworkAnomaly } from '../../core/models/anomaly.model';
 import mapboxgl from 'mapbox-gl';
 import { of } from 'rxjs';
@@ -80,6 +83,8 @@ describe('DashboardShellComponent', () => {
           },
         },
         { provide: AnomalyService, useValue: anomalyServiceSpy },
+        provideHttpClient(),
+        provideHttpClientTesting(),
       ],
     }).compileComponents();
 

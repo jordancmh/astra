@@ -1,0 +1,189 @@
+<div class="fleet-sidebar-root flex flex-col gap-3">
+
+  <!-- KPI Header -->
+  <section class="kpi-panel">
+    <div class="flex items-center justify-between mb-2">
+      <h2 class="panel-title !mb-0"><span class="panel-icon">🚛</span>Fleet Telemetry</h2>
+      @if (fleetService.lastSyncedAt()) {
+        <span class="text-[9px] font-mono text-slate-500">
+          {{ fleetService.lastSyncedAt() | date:'HH:mm:ss' }}
+        </span>
+      }
+    </div>
+
+    <!-- 2x2 KPI Grid -->
+    <div class="grid grid-cols-2 gap-2 text-center">
+      <div class="p-2 rounded-lg bg-slate-900/80 border border-slate-800">
+        <span class="block font-mono text-lg font-bold text-slate-100">{{ fleetService.summary().total }}</span>
+        <span class="block text-[10px] uppercase font-mono text-slate-400 tracking-wider">Total</span>
+      </div>
+      <div class="p-2 rounded-lg bg-emerald-950/30 border border-emerald-500/30">
+        <span class="block font-mono text-lg font-bold text-emerald-400">{{ fleetService.summary().nominal }}</span>
+        <span class="block text-[10px] uppercase font-mono text-emerald-400/80 tracking-wider">Nominal</span>
+      </div>
+      <div class="p-2 rounded-lg bg-cyan-950/30 border border-cyan-500/30">
+        <span class="block font-mono text-lg font-bold text-cyan-400">{{ fleetService.summary().rerouting }}</span>
+        <span class="block text-[10px] uppercase font-mono text-cyan-400/80 tracking-wider">Rerouting</span>
+      </div>
+      <div class="p-2 rounded-lg bg-rose-950/30 border border-rose-500/30">
+        <span class="block font-mono text-lg font-bold text-rose-400">{{ fleetService.summary().disrupted }}</span>
+        <span class="block text-[10px] uppercase font-mono text-rose-400/80 tracking-wider">Disrupted</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Simulation Control Toolbar -->
+  <section class="simulation-toolbar p-2 rounded-xl bg-slate-900/90 border border-slate-800">
+    <div class="flex items-center justify-between gap-1.5">
+      <button
+        type="button"
+        (click)="seedFleet()"
+        [disabled]="fleetService.isLoading()"
+        class="flex-1 py-1 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium flex items-center justify-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+        title="Seed 5 Klang Valley demo vehicles across corridors"
+      >
+        <svg class="w-3.5 h-3.5 text-cyan-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        <span>Seed</span>
+      </button>
+
+      <button
+        type="button"
+        (click)="toggleSimulation()"
+        [class]="fleetService.isSimulationRunning()
+          ? 'flex-1 py-1 px-2 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-medium flex items-center justify-center gap-1 transition-colors cursor-pointer'
+          : 'flex-1 py-1 px-2 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-medium flex items-center justify-center gap-1 transition-colors cursor-pointer'"
+        [title]="fleetService.isSimulationRunning() ? 'Pause Simulation' : 'Start Movement Ticker'"
+      >
+        @if (fleetService.isSimulationRunning()) {
+          <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span>
+          <span>Pause</span>
+        } @else {
+          <svg class="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z"/>
+          </svg>
+          <span>Run</span>
+        }
+      </button>
+
+      <button
+        type="button"
+        (click)="resetSimulation()"
+        [disabled]="fleetService.isLoading()"
+        class="p-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer disabled:opacity-50"
+        title="Reset simulation and clear seeded fleet"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+      </button>
+    </div>
+  </section>
+
+  <!-- Filter Pills -->
+  <section class="filter-pills flex items-center gap-1">
+    <button
+      type="button"
+      (click)="setFilter('ALL')"
+      [class]="fleetService.statusFilter() === 'ALL'
+        ? 'px-2 py-0.5 rounded-full text-[10px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 cursor-pointer'
+        : 'px-2 py-0.5 rounded-full text-[10px] font-mono bg-slate-900/60 text-slate-400 hover:text-slate-200 cursor-pointer'"
+    >
+      All ({{ fleetService.vehicles().length }})
+    </button>
+    <button
+      type="button"
+      (click)="setFilter('DISRUPTED')"
+      [class]="fleetService.statusFilter() === 'DISRUPTED'
+        ? 'px-2 py-0.5 rounded-full text-[10px] font-mono bg-rose-500/20 text-rose-300 border border-rose-500/40 cursor-pointer'
+        : 'px-2 py-0.5 rounded-full text-[10px] font-mono bg-slate-900/60 text-slate-400 hover:text-slate-200 cursor-pointer'"
+    >
+      Disrupted
+    </button>
+    <button
+      type="button"
+      (click)="setFilter('NOMINAL')"
+      [class]="fleetService.statusFilter() === 'NOMINAL'
+        ? 'px-2 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 cursor-pointer'
+        : 'px-2 py-0.5 rounded-full text-[10px] font-mono bg-slate-900/60 text-slate-400 hover:text-slate-200 cursor-pointer'"
+    >
+      Nominal
+    </button>
+  </section>
+
+  <!-- Scrollable Vehicle Card List -->
+  <section class="vehicles-list flex flex-col gap-2 max-h-[380px] overflow-y-auto pr-1">
+    @for (vehicle of fleetService.filteredVehicles(); track vehicle.id) {
+      <div
+        (click)="selectVehicle(vehicle.id)"
+        class="vehicle-card p-2.5 rounded-xl border transition-all cursor-pointer"
+        [ngClass]="fleetService.selectedVehicleId() === vehicle.id
+          ? 'bg-slate-900 border-cyan-500 shadow-md shadow-cyan-500/10 ring-1 ring-cyan-500/50'
+          : 'bg-slate-900/70 hover:bg-slate-900/90 border-slate-800 hover:border-slate-700'"
+      >
+        <!-- Card Top: ID, Priority, Status -->
+        <div class="flex items-center justify-between mb-1.5">
+          <div class="flex items-center gap-1.5">
+            <span class="font-mono text-xs font-bold text-slate-100">{{ vehicle.id }}</span>
+            <span
+              class="text-[9px] font-mono px-1.5 py-0.5 rounded uppercase font-semibold"
+              [ngClass]="priorityConfig[vehicle.cargoPriority].badgeClass"
+              [title]="priorityConfig[vehicle.cargoPriority].desc"
+            >
+              {{ priorityConfig[vehicle.cargoPriority].label }}
+            </span>
+          </div>
+
+          <span
+            class="text-[9px] font-mono px-1.5 py-0.5 rounded uppercase font-semibold"
+            [ngClass]="statusConfig[vehicle.status].badgeClass"
+          >
+            {{ vehicle.status }}
+          </span>
+        </div>
+
+        <!-- Route & Hazard Badges -->
+        <div class="flex items-center justify-between text-[10px] text-slate-400 font-mono mb-2">
+          <span>Route: <span class="text-slate-200 font-semibold">{{ vehicle.routeId }}</span></span>
+          @if (vehicle.intersectedAnomalyId) {
+            <span class="text-rose-400 font-bold bg-rose-950/50 px-1 py-0.5 rounded border border-rose-500/30">
+              ⚠️ {{ vehicle.intersectedAnomalyId }}
+            </span>
+          }
+        </div>
+
+        <!-- Bottom Telemetry Strip: Speed, Bearing, Coordinates -->
+        <div class="flex items-center justify-between pt-1.5 border-t border-slate-800/80 text-[10px] font-mono text-slate-400">
+          <div class="flex items-center gap-1">
+            <span class="text-slate-200 font-semibold">{{ vehicle.speedKmh | number:'1.0-0' }}</span>
+            <span>km/h</span>
+          </div>
+
+          <!-- Rotated Bearing Indicator -->
+          <div class="flex items-center gap-1" title="Heading bearing">
+            <svg
+              class="w-3 h-3 text-cyan-400 transition-transform duration-300"
+              [style.transform]="'rotate(' + vehicle.bearing + 'deg)'"
+              fill="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/>
+            </svg>
+            <span>{{ vehicle.bearing | number:'1.0-0' }}°</span>
+          </div>
+
+          <div class="text-[9px] text-slate-500 truncate max-w-[85px]" title="[lng, lat]">
+            {{ vehicle.longitude | number:'1.3-3' }},{{ vehicle.latitude | number:'1.3-3' }}
+          </div>
+        </div>
+      </div>
+    } @empty {
+      <div class="p-4 rounded-xl bg-slate-900/40 border border-slate-800 text-center">
+        <span class="text-xs text-slate-400 block mb-1">No vehicles active</span>
+        <small class="text-[10px] text-slate-500 block">Click "Seed" to dispatch Klang Valley fleet</small>
+      </div>
+    }
+  </section>
+
+</div>

@@ -97,6 +97,27 @@ public final class GeometryUtils {
         return GeoJsonPolygon.ofSingleRing(ring);
     }
 
+    public static GeoJsonLineString toGeoJsonLineString(LineString lineString) {
+        if (lineString == null) {
+            return null;
+        }
+        Coordinate[] coordinates = lineString.getCoordinates();
+        List<List<Double>> coordsList = new ArrayList<>(coordinates.length);
+        for (Coordinate c : coordinates) {
+            coordsList.add(List.of(c.x, c.y));
+        }
+        return new GeoJsonLineString(coordsList);
+    }
+
+    public static double calculateBearing(double lat1, double lon1, double lat2, double lon2) {
+        double dLon = Math.toRadians(lon2 - lon1);
+        double lat1Rad = Math.toRadians(lat1);
+        double lat2Rad = Math.toRadians(lat2);
+        double y = Math.sin(dLon) * Math.cos(lat2Rad);
+        double x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
+        return (Math.toDegrees(Math.atan2(y, x)) + 360.0) % 360.0;
+    }
+
     public static boolean isWithinKlangValley(double longitude, double latitude) {
         return longitude >= MIN_LNG && longitude <= MAX_LNG
                 && latitude >= MIN_LAT && latitude <= MAX_LAT;

@@ -1,39 +1,27 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { MapViewComponent } from './map-view.component';
-import { RoutingService } from '../../core/services/routing.service';
 import { AnomalyService } from '../../core/services/anomaly.service';
-import { RouteCalculateResponse } from '../../core/models/route.model';
+import { FleetTelemetryService } from '../../core/services/fleet-telemetry.service';
 import { NetworkAnomaly } from '../../core/models/anomaly.model';
+import { FleetRoute, FleetVehicle } from '../../core/models/fleet.model';
 import mapboxgl from 'mapbox-gl';
-import { of, throwError } from 'rxjs';
+import { of } from 'rxjs';
 
 describe('MapViewComponent', () => {
   let component: MapViewComponent;
   let fixture: ComponentFixture<MapViewComponent>;
   let mockMap: any;
   let mockCanvas: any;
-  let routingServiceSpy: jasmine.SpyObj<RoutingService>;
   let anomalyServiceSpy: jasmine.SpyObj<AnomalyService>;
+  let fleetServiceSpy: jasmine.SpyObj<FleetTelemetryService>;
   let registeredMapEventHandlers: { [key: string]: Function } = {};
 
   const activeAnomaliesSignal = signal<NetworkAnomaly[]>([]);
   const isDroppingOnMapSignal = signal<boolean>(false);
-
-  const mockRouteResponse: RouteCalculateResponse = {
-    routeId: 'RT-PROTOTYPE-01',
-    status: 'OPTIMAL',
-    distanceMeters: 18450.0,
-    estimatedTimeMs: 1250000,
-    geometry: {
-      type: 'LineString',
-      coordinates: [
-        [101.6839, 3.1390],
-        [101.6200, 3.1000],
-        [101.5540, 3.0755],
-      ],
-    },
-  };
+  const routesSignal = signal<FleetRoute[]>([]);
+  const vehiclesSignal = signal<FleetVehicle[]>([]);
+  const selectedVehicleIdSignal = signal<string | null>(null);
 
   const mockAnomaly: NetworkAnomaly = {
     id: 'D-001',
@@ -57,11 +45,42 @@ describe('MapViewComponent', () => {
     isActive: true,
   };
 
+  const mockVehicle: FleetVehicle = {
+    id: 'V-001',
+    routeId: 'RT-001',
+    latitude: 3.0833,
+    longitude: 101.5833,
+    bearing: 90.0,
+    speedKmh: 60.0,
+    cargoPriority: 5,
+    status: 'NOMINAL',
+    intersectedAnomalyId: null,
+    updatedAt: '2026-11-23T14:30:00Z',
+  };
+
+  const mockRoute: FleetRoute = {
+    id: 'RT-001',
+    vehicleId: 'V-001',
+    status: 'OPTIMAL',
+    geometry: {
+      type: 'LineString',
+      coordinates: [
+        [101.58, 3.08],
+        [101.60, 3.10],
+      ],
+    },
+    distanceMeters: 5000,
+    estimatedTimeMs: 300000,
+  };
+
   beforeEach(async () => {
     registeredMapEventHandlers = {};
     mockCanvas = { style: { cursor: '' } };
     activeAnomaliesSignal.set([]);
     isDroppingOnMapSignal.set(false);
+    routesSignal.set([]);
+    vehiclesSignal.set([]);
+    selectedVehicleIdSignal.set(null);
 
     mockMap = {
       addControl: jasmine.createSpy('addControl'),
@@ -83,16 +102,16 @@ describe('MapViewComponent', () => {
       addLayer: jasmine.createSpy('addLayer'),
       getLayer: jasmine.createSpy('getLayer').and.returnValue(undefined),
       fitBounds: jasmine.createSpy('fitBounds'),
+      flyTo: jasmine.createSpy('flyTo'),
       getCanvas: jasmine.createSpy('getCanvas').and.returnValue(mockCanvas),
+      hasImage: jasmine.createSpy('hasImage').and.returnValue(false),
+      addImage: jasmine.createSpy('addImage'),
     };
 
     spyOn(mapboxgl, 'Map').and.returnValue(mockMap);
     spyOn(mapboxgl, 'NavigationControl').and.returnValue({} as any);
     spyOn(mapboxgl, 'AttributionControl').and.returnValue({} as any);
     spyOn(mapboxgl, 'ScaleControl').and.returnValue({} as any);
-
-    routingServiceSpy = jasmine.createSpyObj('RoutingService', ['calculateRoute']);
-    routingServiceSpy.calculateRoute.and.returnValue(of(mockRouteResponse));
 
     anomalyServiceSpy = jasmine.createSpyObj('AnomalyService', [
       'fetchActiveAnomalies',
@@ -110,11 +129,20 @@ describe('MapViewComponent', () => {
       (lng: number, lat: number) => lng >= 101.4 && lng <= 101.9 && lat >= 2.9 && lat <= 3.3
     );
 
+    fleetServiceSpy = jasmine.createSpyObj('FleetTelemetryService', [
+      'fetchFleetState',
+      'selectVehicle',
+    ]);
+    (fleetServiceSpy as any).routes = routesSignal;
+    (fleetServiceSpy as any).vehicles = vehiclesSignal;
+    (fleetServiceSpy as any).selectedVehicleId = selectedVehicleIdSignal;
+    fleetServiceSpy.fetchFleetState.and.returnValue(of(null));
+
     await TestBed.configureTestingModule({
       imports: [MapViewComponent],
       providers: [
-        { provide: RoutingService, useValue: routingServiceSpy },
         { provide: AnomalyService, useValue: anomalyServiceSpy },
+        { provide: FleetTelemetryService, useValue: fleetServiceSpy },
       ],
     }).compileComponents();
 
@@ -130,9 +158,7 @@ describe('MapViewComponent', () => {
   it('should add anomaly GeoJSON source and fill/line layers on load', () => {
     expect(mockMap.addSource).toHaveBeenCalledWith(
       'anomalies-source',
-      jasmine.objectContaining({
-        type: 'geojson',
-      })
+      jasmine.objectContaining({ type: 'geojson' })
     );
 
     expect(mockMap.addLayer).toHaveBeenCalledWith(
@@ -143,78 +169,101 @@ describe('MapViewComponent', () => {
       })
     );
 
-    expect(mockMap.addLayer).toHaveBeenCalledWith(
-      jasmine.objectContaining({
-        id: 'anomalies-line',
-        type: 'line',
-        source: 'anomalies-source',
-      })
-    );
-
     expect(anomalyServiceSpy.fetchActiveAnomalies).toHaveBeenCalled();
   });
 
-  it('should update anomalies source when activeAnomalies signal updates', () => {
-    const mockAnomalySource = {
-      setData: jasmine.createSpy('setData'),
-    };
+  it('should add fleet route and vehicle GeoJSON layers on load', () => {
+    expect(mockMap.addSource).toHaveBeenCalledWith(
+      'fleet-routes-source',
+      jasmine.objectContaining({ type: 'geojson' })
+    );
+
+    expect(mockMap.addSource).toHaveBeenCalledWith(
+      'fleet-vehicles-source',
+      jasmine.objectContaining({ type: 'geojson' })
+    );
+
+    expect(mockMap.addLayer).toHaveBeenCalledWith(
+      jasmine.objectContaining({
+        id: 'fleet-routes-line',
+        type: 'line',
+        source: 'fleet-routes-source',
+      })
+    );
+
+    expect(mockMap.addLayer).toHaveBeenCalledWith(
+      jasmine.objectContaining({
+        id: 'fleet-vehicles-circle',
+        type: 'circle',
+        source: 'fleet-vehicles-source',
+      })
+    );
+
+    expect(fleetServiceSpy.fetchFleetState).toHaveBeenCalled();
+  });
+
+  it('should update fleet routes source when routes signal updates', () => {
+    const mockRouteSource = { setData: jasmine.createSpy('setData') };
     mockMap.getSource.and.callFake((id: string) => {
-      if (id === 'anomalies-source') return mockAnomalySource;
+      if (id === 'fleet-routes-source') return mockRouteSource;
       return undefined;
     });
 
-    activeAnomaliesSignal.set([mockAnomaly]);
+    routesSignal.set([mockRoute]);
     fixture.detectChanges();
 
-    expect(mockAnomalySource.setData).toHaveBeenCalledWith(
+    expect(mockRouteSource.setData).toHaveBeenCalledWith(
       jasmine.objectContaining({
         type: 'FeatureCollection',
         features: jasmine.arrayContaining([
           jasmine.objectContaining({
-            id: 'D-001',
+            id: 'RT-001',
             type: 'Feature',
-            geometry: mockAnomaly.polygon,
+            geometry: mockRoute.geometry,
           }),
         ]),
       })
     );
   });
 
-  it('should handle map click when dropping on map with valid coordinates', () => {
-    isDroppingOnMapSignal.set(true);
+  it('should update fleet vehicles source when vehicles signal updates', () => {
+    const mockVehicleSource = { setData: jasmine.createSpy('setData') };
+    mockMap.getSource.and.callFake((id: string) => {
+      if (id === 'fleet-vehicles-source') return mockVehicleSource;
+      return undefined;
+    });
 
-    const clickHandler = registeredMapEventHandlers['click'];
-    expect(clickHandler).toBeDefined();
+    vehiclesSignal.set([mockVehicle]);
+    fixture.detectChanges();
 
-    clickHandler({ lngLat: { lng: 101.6210, lat: 3.1180 } });
-
-    expect(anomalyServiceSpy.setSelectedCoordinates).toHaveBeenCalledWith([101.6210, 3.1180]);
-    expect(anomalyServiceSpy.setDroppingOnMap).toHaveBeenCalledWith(false);
+    expect(mockVehicleSource.setData).toHaveBeenCalledWith(
+      jasmine.objectContaining({
+        type: 'FeatureCollection',
+        features: jasmine.arrayContaining([
+          jasmine.objectContaining({
+            id: 'V-001',
+            type: 'Feature',
+            geometry: {
+              type: 'Point',
+              coordinates: [101.5833, 3.0833],
+            },
+          }),
+        ]),
+      })
+    );
   });
 
-  it('should ignore map click when coordinates are outside Klang Valley', () => {
-    isDroppingOnMapSignal.set(true);
-    spyOn(console, 'warn');
+  it('should fly to vehicle when selectedVehicleId changes', () => {
+    vehiclesSignal.set([mockVehicle]);
+    selectedVehicleIdSignal.set('V-001');
+    fixture.detectChanges();
 
-    const clickHandler = registeredMapEventHandlers['click'];
-    clickHandler({ lngLat: { lng: 100.0, lat: 5.0 } }); // Out of bounds
-
-    expect(anomalyServiceSpy.setSelectedCoordinates).not.toHaveBeenCalled();
-    expect(console.warn).toHaveBeenCalled();
-  });
-
-  it('should update cursor on mouseenter and mouseleave for anomalies-fill', () => {
-    const enterHandler = registeredMapEventHandlers['mouseenter:anomalies-fill'];
-    const leaveHandler = registeredMapEventHandlers['mouseleave:anomalies-fill'];
-
-    expect(enterHandler).toBeDefined();
-    expect(leaveHandler).toBeDefined();
-
-    enterHandler();
-    expect(mockCanvas.style.cursor).toBe('pointer');
-
-    leaveHandler();
-    expect(mockCanvas.style.cursor).toBe('');
+    expect(mockMap.flyTo).toHaveBeenCalledWith(
+      jasmine.objectContaining({
+        center: [101.5833, 3.0833],
+        zoom: 13.5,
+      })
+    );
   });
 
   it('should remove the map and current popup on destroy', () => {

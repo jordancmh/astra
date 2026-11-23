@@ -10,10 +10,10 @@ import {
 } from '@angular/core';
 import mapboxgl from 'mapbox-gl';
 import { environment } from '../../../environments/environment';
-import { RoutingService } from '../../core/services/routing.service';
 import { AnomalyService } from '../../core/services/anomaly.service';
-import { GeoJsonLineString, RouteCalculateRequest } from '../../core/models/route.model';
+import { FleetTelemetryService } from '../../core/services/fleet-telemetry.service';
 import { NetworkAnomaly } from '../../core/models/anomaly.model';
+import { FleetRoute, FleetVehicle } from '../../core/models/fleet.model';
 
 /** Klang Valley bounding box: SW [lng, lat] -> NE [lng, lat] (WGS 84) */
 const KLANG_VALLEY_BOUNDS: mapboxgl.LngLatBoundsLike = [
@@ -23,10 +23,6 @@ const KLANG_VALLEY_BOUNDS: mapboxgl.LngLatBoundsLike = [
 
 /** Approximate centre of Klang Valley (Kuala Lumpur) */
 const KL_CENTER: [number, number] = [101.6839, 3.1390];
-
-/** Prototype origin (KL city center) and destination (Shah Alam / Subang) */
-const PROTOTYPE_ORIGIN: [number, number] = [101.6839, 3.1390];
-const PROTOTYPE_DESTINATION: [number, number] = [101.5540, 3.0755];
 
 @Component({
   selector: 'app-map-view',
@@ -39,8 +35,8 @@ export class MapViewComponent implements AfterViewInit, OnDestroy {
   @ViewChild('mapContainer', { static: true })
   private mapContainerRef!: ElementRef<HTMLDivElement>;
 
-  private readonly routingService = inject(RoutingService);
   readonly anomalyService = inject(AnomalyService);
+  readonly fleetService = inject(FleetTelemetryService);
 
   private map!: mapboxgl.Map;
   private mapLoaded = false;
@@ -62,6 +58,39 @@ export class MapViewComponent implements AfterViewInit, OnDestroy {
         const canvas = this.map.getCanvas?.();
         if (canvas) {
           canvas.style.cursor = isDropping ? 'crosshair' : '';
+        }
+      }
+    });
+
+    // Reactively update active routes from FleetTelemetryService
+    effect(() => {
+      const routes = this.fleetService.routes();
+      if (this.mapLoaded) {
+        this.updateFleetRoutes(routes);
+      }
+    });
+
+    // Reactively update vehicle positions & orientations from FleetTelemetryService
+    effect(() => {
+      const vehicles = this.fleetService.vehicles();
+      if (this.mapLoaded) {
+        this.updateFleetVehicles(vehicles);
+      }
+    });
+
+    // Reactively fly camera to focused vehicle on selection
+    effect(() => {
+      const selectedId = this.fleetService.selectedVehicleId();
+      if (this.mapLoaded && selectedId && this.map) {
+        const vehicle = this.fleetService.vehicles().find((v) => v.id === selectedId);
+        if (vehicle && typeof this.map.flyTo === 'function') {
+          this.map.flyTo({
+            center: [vehicle.longitude, vehicle.latitude],
+            zoom: 13.5,
+            speed: 1.2,
+            curve: 1.4,
+            essential: true,
+          });
         }
       }
     });
@@ -97,11 +126,41 @@ export class MapViewComponent implements AfterViewInit, OnDestroy {
     this.map.on('load', () => {
       console.log('[ASTRA] Mapbox GL JS loaded — Klang Valley spatial viewport ready.');
       this.mapLoaded = true;
+      this.loadDirectionArrowIcon();
       this.setupAnomalyLayers();
+      this.setupFleetRouteLayers();
+      this.setupFleetVehicleLayers();
       this.setupMapClickHandlers();
-      this.loadPrototypeRoute();
+
       this.anomalyService.fetchActiveAnomalies().subscribe();
+      this.fleetService.fetchFleetState().subscribe();
     });
+  }
+
+  private loadDirectionArrowIcon(): void {
+    if (!this.map || this.map.hasImage?.('vehicle-arrow-icon')) return;
+
+    try {
+      const size = 32;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.moveTo(16, 4);
+        ctx.lineTo(26, 26);
+        ctx.lineTo(16, 20);
+        ctx.lineTo(6, 26);
+        ctx.closePath();
+        ctx.fill();
+        const imgData = ctx.getImageData(0, 0, size, size);
+        this.map.addImage('vehicle-arrow-icon', imgData);
+      }
+    } catch (e) {
+      console.warn('[ASTRA] Could not create in-memory vehicle arrow icon:', e);
+    }
   }
 
   private setupAnomalyLayers(): void {
@@ -157,8 +216,129 @@ export class MapViewComponent implements AfterViewInit, OnDestroy {
       });
     }
 
-    // Immediately synchronize any existing anomalies
     this.updateAnomalyFeatures(this.anomalyService.activeAnomalies());
+  }
+
+  private setupFleetRouteLayers(): void {
+    const sourceId = 'fleet-routes-source';
+    if (!this.map.getSource(sourceId)) {
+      this.map.addSource(sourceId, {
+        type: 'geojson',
+        data: {
+          type: 'FeatureCollection',
+          features: [],
+        },
+      });
+    }
+
+    if (!this.map.getLayer('fleet-routes-line')) {
+      this.map.addLayer({
+        id: 'fleet-routes-line',
+        type: 'line',
+        source: sourceId,
+        layout: {
+          'line-join': 'round',
+          'line-cap': 'round',
+        },
+        paint: {
+          'line-color': [
+            'match',
+            ['get', 'status'],
+            'NOMINAL', '#10b981',
+            'OPTIMAL', '#10b981',
+            'CONFLICT', '#f59e0b',
+            'DISRUPTED', '#ef4444',
+            'REROUTING', '#06b6d4',
+            '#10b981',
+          ],
+          'line-width': 3.5,
+          'line-opacity': 0.85,
+        },
+      });
+    }
+
+    this.updateFleetRoutes(this.fleetService.routes());
+  }
+
+  private setupFleetVehicleLayers(): void {
+    const sourceId = 'fleet-vehicles-source';
+    if (!this.map.getSource(sourceId)) {
+      this.map.addSource(sourceId, {
+        type: 'geojson',
+        data: {
+          type: 'FeatureCollection',
+          features: [],
+        },
+      });
+    }
+
+    // Vehicle status pulse halo
+    if (!this.map.getLayer('fleet-vehicles-pulse')) {
+      this.map.addLayer({
+        id: 'fleet-vehicles-pulse',
+        type: 'circle',
+        source: sourceId,
+        paint: {
+          'circle-radius': 14,
+          'circle-color': [
+            'match',
+            ['get', 'status'],
+            'NOMINAL', '#10b981',
+            'INTERSECTED', '#f59e0b',
+            'DISRUPTED', '#ef4444',
+            'REROUTING', '#06b6d4',
+            '#10b981',
+          ],
+          'circle-opacity': 0.25,
+        },
+      });
+    }
+
+    // Vehicle point
+    if (!this.map.getLayer('fleet-vehicles-circle')) {
+      this.map.addLayer({
+        id: 'fleet-vehicles-circle',
+        type: 'circle',
+        source: sourceId,
+        paint: {
+          'circle-radius': 8,
+          'circle-color': [
+            'match',
+            ['get', 'status'],
+            'NOMINAL', '#10b981',
+            'INTERSECTED', '#f59e0b',
+            'DISRUPTED', '#ef4444',
+            'REROUTING', '#06b6d4',
+            '#10b981',
+          ],
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#ffffff',
+        },
+      });
+    }
+
+    // Vehicle label layer
+    if (!this.map.getLayer('fleet-vehicles-label')) {
+      this.map.addLayer({
+        id: 'fleet-vehicles-label',
+        type: 'symbol',
+        source: sourceId,
+        layout: {
+          'text-field': ['get', 'id'],
+          'text-size': 11,
+          'text-offset': [0, 1.4],
+          'text-anchor': 'top',
+          'text-allow-overlap': true,
+        },
+        paint: {
+          'text-color': '#f8fafc',
+          'text-halo-color': '#0f172a',
+          'text-halo-width': 1.5,
+        },
+      });
+    }
+
+    this.updateFleetVehicles(this.fleetService.vehicles());
   }
 
   private setupMapClickHandlers(): void {
@@ -173,6 +353,30 @@ export class MapViewComponent implements AfterViewInit, OnDestroy {
         } else {
           console.warn('[ASTRA] Clicked coordinate outside Klang Valley bounds:', [lng, lat]);
         }
+      }
+    });
+
+    // Vehicle click listener -> Focus vehicle
+    this.map.on('click', 'fleet-vehicles-circle', (e: any) => {
+      if (this.anomalyService.isDroppingOnMap()) return;
+      if (!e.features || e.features.length === 0) return;
+      const vId = e.features[0].properties?.id;
+      if (vId) {
+        this.fleetService.selectVehicle(vId);
+      }
+    });
+
+    this.map.on('mouseenter', 'fleet-vehicles-circle', () => {
+      if (!this.anomalyService.isDroppingOnMap()) {
+        const canvas = this.map.getCanvas?.();
+        if (canvas) canvas.style.cursor = 'pointer';
+      }
+    });
+
+    this.map.on('mouseleave', 'fleet-vehicles-circle', () => {
+      if (!this.anomalyService.isDroppingOnMap()) {
+        const canvas = this.map.getCanvas?.();
+        if (canvas) canvas.style.cursor = '';
       }
     });
 
@@ -252,67 +456,62 @@ export class MapViewComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  private loadPrototypeRoute(): void {
-    const request: RouteCalculateRequest = {
-      routeId: 'RT-PROTOTYPE-01',
-      vehicleId: 'V-001',
-      originLat: PROTOTYPE_ORIGIN[1],
-      originLng: PROTOTYPE_ORIGIN[0],
-      destLat: PROTOTYPE_DESTINATION[1],
-      destLng: PROTOTYPE_DESTINATION[0],
-      avoidAnomalyIds: [],
-    };
+  private updateFleetRoutes(routes: FleetRoute[]): void {
+    if (!this.map) return;
 
-    this.routingService.calculateRoute(request).subscribe({
-      next: (response) => {
-        this.renderRouteGeometry(response.geometry);
-      },
-      error: (err) => {
-        console.warn('[ASTRA] Failed to load prototype route from backend:', err);
-      },
+    const source = this.map.getSource('fleet-routes-source') as mapboxgl.GeoJSONSource | undefined;
+    if (!source) return;
+
+    const features: GeoJSON.Feature[] = routes
+      .filter((r) => r.geometry && r.geometry.coordinates && r.geometry.coordinates.length > 0)
+      .map((r) => ({
+        type: 'Feature',
+        id: r.id,
+        properties: {
+          id: r.id,
+          vehicleId: r.vehicleId,
+          status: r.status,
+          distanceMeters: r.distanceMeters,
+        },
+        geometry: {
+          type: 'LineString',
+          coordinates: r.geometry.coordinates,
+        },
+      }));
+
+    source.setData({
+      type: 'FeatureCollection',
+      features,
     });
   }
 
-  private renderRouteGeometry(geometry: GeoJsonLineString): void {
+  private updateFleetVehicles(vehicles: FleetVehicle[]): void {
     if (!this.map) return;
 
-    const sourceId = 'active-route';
-    const layerId = 'active-route-line';
+    const source = this.map.getSource('fleet-vehicles-source') as mapboxgl.GeoJSONSource | undefined;
+    if (!source) return;
 
-    const existingSource = this.map.getSource(sourceId) as mapboxgl.GeoJSONSource | undefined;
-    if (existingSource) {
-      existingSource.setData(geometry as any);
-    } else {
-      this.map.addSource(sourceId, {
-        type: 'geojson',
-        data: geometry as any,
-      });
-    }
+    const features: GeoJSON.Feature[] = vehicles.map((v) => ({
+      type: 'Feature',
+      id: v.id,
+      properties: {
+        id: v.id,
+        routeId: v.routeId,
+        status: v.status,
+        bearing: v.bearing,
+        speedKmh: v.speedKmh,
+        cargoPriority: v.cargoPriority,
+      },
+      geometry: {
+        type: 'Point',
+        coordinates: [v.longitude, v.latitude],
+      },
+    }));
 
-    if (!this.map.getLayer(layerId)) {
-      this.map.addLayer({
-        id: layerId,
-        type: 'line',
-        source: sourceId,
-        layout: {
-          'line-join': 'round',
-          'line-cap': 'round',
-        },
-        paint: {
-          'line-color': '#06b6d4', // --color-accent (cyan)
-          'line-width': 4,
-          'line-opacity': 0.9,
-        },
-      });
-    }
-
-    if (geometry.coordinates && geometry.coordinates.length > 0) {
-      const bounds = geometry.coordinates.reduce(
-        (b, coord) => b.extend(coord as [number, number]),
-        new mapboxgl.LngLatBounds(geometry.coordinates[0], geometry.coordinates[0])
-      );
-      this.map.fitBounds(bounds, { padding: 40, maxZoom: 14 });
-    }
+    source.setData({
+      type: 'FeatureCollection',
+      features,
+    });
   }
 
   ngOnDestroy(): void {
