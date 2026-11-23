@@ -40,6 +40,16 @@ public class GraphHopperClient {
         return executeRoute(request, originLng, originLat, destLng, destLat);
     }
 
+    public GraphHopperRouteResponse.GraphHopperPath routeWithWaypoints(List<List<Double>> points) {
+        if (points == null || points.size() < 2) {
+            throw new IllegalArgumentException("Points must contain at least 2 coordinate pairs");
+        }
+        GraphHopperRouteRequest request = GraphHopperRouteRequest.ofWaypoints(points);
+        List<Double> start = points.get(0);
+        List<Double> end = points.get(points.size() - 1);
+        return executeRoute(request, start.get(0), start.get(1), end.get(0), end.get(1));
+    }
+
     private GraphHopperRouteResponse.GraphHopperPath executeRoute(
             GraphHopperRouteRequest request,
             double originLng, double originLat,

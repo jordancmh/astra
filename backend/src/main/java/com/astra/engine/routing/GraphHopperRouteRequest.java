@@ -21,6 +21,16 @@ public record GraphHopperRouteRequest(
         );
     }
 
+    public static GraphHopperRouteRequest ofWaypoints(List<List<Double>> points) {
+        return new GraphHopperRouteRequest(
+                "car",
+                points,
+                false,
+                true,
+                null
+        );
+    }
+
     public static GraphHopperRouteRequest withCustomModel(
             double originLng, double originLat,
             double destLng, double destLat,

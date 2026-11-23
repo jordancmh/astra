@@ -37,12 +37,39 @@ class McpToolsTest {
     @Mock
     private AnomalyService anomalyService;
 
+    @Mock
+    private com.astra.engine.telemetry.FleetService fleetService;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
     private McpTools mcpTools;
 
     @BeforeEach
     void setUp() {
-        mcpTools = new McpTools(telemetryService, routingService, anomalyService, objectMapper);
+        mcpTools = new McpTools(telemetryService, routingService, anomalyService, fleetService, objectMapper);
+    }
+
+    @Test
+    void getFleetState_withFleetService_returnsEnrichedVehiclesWithTrajectoryAndPriority() {
+        com.astra.engine.telemetry.dto.FleetSummaryDto summary = new com.astra.engine.telemetry.dto.FleetSummaryDto(1, 1, 0, 0);
+        com.astra.engine.telemetry.dto.FleetVehicleDto v1 = new com.astra.engine.telemetry.dto.FleetVehicleDto(
+                "V-001", "RT-001", 3.0833, 101.5833, 90.0, 60.0, 5, "NOMINAL", null, Instant.now()
+        );
+        com.astra.engine.telemetry.dto.FleetRouteDto r1 = new com.astra.engine.telemetry.dto.FleetRouteDto(
+                "RT-001", "V-001", "OPTIMAL",
+                new com.astra.engine.common.GeoJsonLineString(List.of(List.of(101.58, 3.08), List.of(101.60, 3.10))),
+                5000.0, 300000L
+        );
+        com.astra.engine.telemetry.dto.FleetStateResponse response = new com.astra.engine.telemetry.dto.FleetStateResponse(
+                summary, List.of(v1), List.of(r1), Instant.now()
+        );
+        when(fleetService.getFleetState()).thenReturn(response);
+        when(anomalyService.getActiveAnomalies()).thenReturn(List.of());
+
+        String json = mcpTools.getFleetState(null);
+        assertThat(json).contains("\"vehicleId\":\"V-001\"");
+        assertThat(json).contains("\"cargoPriority\":5");
+        assertThat(json).contains("\"status\":\"NOMINAL\"");
+        assertThat(json).contains("\"upcomingTrajectory\":[[101.58,3.08],[101.6,3.1]]");
     }
 
     @Test

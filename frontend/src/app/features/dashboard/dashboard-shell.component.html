@@ -30,35 +30,7 @@
 
     <!-- Left Sidebar -->
     <aside class="sidebar">
-      <section class="sidebar-panel">
-        <h2 class="panel-title"><span class="panel-icon">🚛</span>Fleet Status</h2>
-        <div class="stat-grid">
-          <div class="stat-item">
-            <span class="stat-value">{{ fleetStats.total }}</span>
-            <span class="stat-label">Total</span>
-          </div>
-          <div class="stat-item nominal">
-            <span class="stat-value">{{ fleetStats.nominal }}</span>
-            <span class="stat-label">Nominal</span>
-          </div>
-          <div class="stat-item rerouting">
-            <span class="stat-value">{{ fleetStats.rerouting }}</span>
-            <span class="stat-label">Rerouting</span>
-          </div>
-          <div class="stat-item disrupted">
-            <span class="stat-value">{{ fleetStats.disrupted }}</span>
-            <span class="stat-label">Disrupted</span>
-          </div>
-        </div>
-      </section>
-
-      <section class="sidebar-panel">
-        <h2 class="panel-title"><span class="panel-icon">🗺️</span>Active Routes</h2>
-        <div class="panel-empty-state">
-          <span>No routes loaded</span>
-          <small>Backend connection pending</small>
-        </div>
-      </section>
+      <app-fleet-telemetry-sidebar class="p-3 border-b border-slate-800"></app-fleet-telemetry-sidebar>
 
       <section class="sidebar-panel">
         <div class="flex items-center justify-between mb-2">
