@@ -89,7 +89,9 @@ class VehicleAgent(BaseModel):
             d["id"] = d["vehicleId"]
 
         # Map alternate location keys
-        if "currentCoords" in d and "currentLocation" not in d and "current_location" not in d:
+        if "longitude" in d and "latitude" in d and "currentLocation" not in d and "current_location" not in d:
+            d["currentLocation"] = [d["longitude"], d["latitude"]]
+        elif "currentCoords" in d and "currentLocation" not in d and "current_location" not in d:
             d["currentLocation"] = d["currentCoords"]
         elif "current_coords" in d and "currentLocation" not in d and "current_location" not in d:
             d["currentLocation"] = d["current_coords"]

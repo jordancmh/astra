@@ -19,6 +19,9 @@ logger = logging.getLogger(__name__)
 CollisionCallback = Callable[[VehicleAgent, Anomaly], Awaitable[None]]
 
 
+AnomalyClearedCallback = Callable[[str], None]
+
+
 class FleetMonitor:
     """
     Asynchronous background monitor coordinating fleet state polling via MCP
@@ -30,10 +33,12 @@ class FleetMonitor:
         mcp_client: AstraMcpClient,
         poll_interval_seconds: float = 1.0,
         on_collision: CollisionCallback | None = None,
+        on_anomaly_cleared: AnomalyClearedCallback | None = None,
     ) -> None:
         self.mcp_client = mcp_client
         self.poll_interval_seconds = poll_interval_seconds
         self.on_collision = on_collision
+        self.on_anomaly_cleared = on_anomaly_cleared
 
         self.agents: dict[str, VehicleAgent] = {}
         self.active_anomalies: dict[str, Anomaly] = {}
@@ -67,14 +72,26 @@ class FleetMonitor:
             for agent in self.agents.values():
                 if agent.intersected_anomaly_id == anomaly_id:
                     agent.clear_intersection()
+            if self.on_anomaly_cleared:
+                try:
+                    self.on_anomaly_cleared(anomaly_id)
+                except Exception as cb_exc:
+                    logger.debug("Error in on_anomaly_cleared callback: %s", cb_exc)
             logger.info("Removed anomaly %s", anomaly_id)
 
     def clear_anomalies(self) -> None:
         """Clears all active anomalies and resets intersected vehicle states."""
+        removed_ids = list(self.active_anomalies.keys())
         self.active_anomalies.clear()
         for agent in self.agents.values():
             if agent.status == "INTERSECTED":
                 agent.clear_intersection()
+        if self.on_anomaly_cleared:
+            for aid in removed_ids:
+                try:
+                    self.on_anomaly_cleared(aid)
+                except Exception:
+                    pass
         logger.info("Cleared all active anomalies from monitor")
 
     async def poll_once(self) -> list[tuple[str, str]]:
@@ -95,12 +112,19 @@ class FleetMonitor:
             logger.warning("Failed to fetch fleet state during poll cycle: %s", exc)
             return []
 
-        # 1. Sync fleet vehicle positions if returned
+        # 1. Sync fleet vehicle positions and auto-register discovered agents
         vehicles_data = fleet_data.get("vehicles", [])
         if isinstance(vehicles_data, list):
             for v_data in vehicles_data:
                 if isinstance(v_data, dict):
                     v_id = v_data.get("vehicleId") or v_data.get("id")
+                    if v_id and v_id not in self.agents:
+                        try:
+                            agent = VehicleAgent.model_validate(v_data)
+                            self.register_agent(agent)
+                        except Exception as exc:
+                            logger.debug("Could not auto-register vehicle %s: %s", v_id, exc)
+
                     if v_id and v_id in self.agents:
                         agent = self.agents[v_id]
                         if "longitude" in v_data and "latitude" in v_data:
@@ -114,17 +138,32 @@ class FleetMonitor:
                             agent.bearing = float(v_data["bearing"])
                         if "routeId" in v_data and v_data["routeId"] is not None:
                             agent.route_id = str(v_data["routeId"])
+                        if "upcomingTrajectory" in v_data and isinstance(v_data["upcomingTrajectory"], list):
+                            try:
+                                agent.upcoming_trajectory = [
+                                    Coordinates.model_validate(pt) for pt in v_data["upcomingTrajectory"]
+                                ]
+                            except Exception as traj_exc:
+                                logger.debug("Could not parse trajectory for %s: %s", v_id, traj_exc)
 
-        # 2. Sync active anomalies if included in payload
-        anomalies_data = fleet_data.get("anomalies", []) or fleet_data.get("activeAnomalies", [])
-        if isinstance(anomalies_data, list):
-            for a_data in anomalies_data:
-                if isinstance(a_data, dict):
-                    try:
-                        anomaly = Anomaly.model_validate(a_data)
-                        self.register_anomaly(anomaly)
-                    except Exception as exc:
-                        logger.debug("Could not parse anomaly payload: %s", exc)
+        # 2. Sync active anomalies and purge stale anomalies if key is present
+        if "anomalies" in fleet_data or "activeAnomalies" in fleet_data:
+            anomalies_data = fleet_data.get("anomalies") or fleet_data.get("activeAnomalies") or []
+            active_ids_in_payload: set[str] = set()
+            if isinstance(anomalies_data, list):
+                for a_data in anomalies_data:
+                    if isinstance(a_data, dict):
+                        try:
+                            anomaly = Anomaly.model_validate(a_data)
+                            active_ids_in_payload.add(anomaly.anomaly_id)
+                            self.register_anomaly(anomaly)
+                        except Exception as exc:
+                            logger.debug("Could not parse anomaly payload: %s", exc)
+
+            # Clear active anomalies no longer present in backend response
+            stale_anomalies = [aid for aid in self.active_anomalies if aid not in active_ids_in_payload]
+            for stale_id in stale_anomalies:
+                self.remove_anomaly(stale_id)
 
         # 3. Perform spatial collision detection
         detected_collisions: list[tuple[str, str]] = []

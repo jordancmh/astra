@@ -1,0 +1,144 @@
+<div
+  class="event-log-container bg-slate-950/95 border-t border-slate-800 backdrop-blur-md transition-all duration-300 ease-in-out flex flex-col z-30"
+  [class.expanded]="logService.isDrawerOpen()"
+>
+  <!-- Ticker Bar (Always visible at top of drawer) -->
+  <div
+    class="ticker-bar h-10 px-4 flex items-center justify-between cursor-pointer select-none hover:bg-slate-900/60 transition-colors"
+    (click)="onToggleDrawer()"
+  >
+    <!-- Left: Status indicator & Live badge -->
+    <div class="flex items-center gap-3 shrink-0">
+      <span class="flex items-center gap-1.5 text-[11px] font-mono font-semibold tracking-wider text-emerald-400">
+        <span class="pulse-dot"></span>
+        LIVE AUDIT
+      </span>
+      <span class="text-slate-600">|</span>
+    </div>
+
+    <!-- Center: Latest Event Ticker or Title -->
+    <div class="flex-1 px-3 overflow-hidden text-xs">
+      @if (logService.latestEvent(); as latest) {
+        <div class="flex items-center gap-2 truncate">
+          <span class="font-mono text-[10px] text-slate-400 shrink-0">
+            {{ latest.timestamp | date:'HH:mm:ss' }}
+          </span>
+          <span
+            class="category-badge shrink-0 text-[9px] font-mono px-1.5 py-0.5 rounded border"
+            [class.badge-negotiation]="latest.category === 'NEGOTIATION'"
+            [class.badge-reroute]="latest.category === 'REROUTE'"
+            [class.badge-anomaly]="latest.category === 'ANOMALY'"
+            [class.badge-telemetry]="latest.category === 'TELEMETRY'"
+            [class.badge-system]="latest.category === 'SYSTEM'"
+          >
+            {{ latest.category }}
+          </span>
+          <span class="text-slate-200 truncate">{{ latest.message }}</span>
+        </div>
+      } @else {
+        <span class="text-slate-400 italic">Awaiting multi-agent system telemetry and negotiation events…</span>
+      }
+    </div>
+
+    <!-- Right: Count badge & Chevron toggle -->
+    <div class="flex items-center gap-3 shrink-0">
+      <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+        {{ logService.totalCount() }} events
+      </span>
+      <button
+        type="button"
+        class="text-slate-400 hover:text-slate-200 text-xs flex items-center gap-1 font-mono transition-transform"
+        [title]="logService.isDrawerOpen() ? 'Collapse drawer' : 'Expand event log'"
+      >
+        <span>{{ logService.isDrawerOpen() ? 'Collapse' : 'Expand' }}</span>
+        <span class="text-[10px] transform transition-transform" [class.rotate-180]="logService.isDrawerOpen()">▲</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Expanded Drawer Content -->
+  @if (logService.isDrawerOpen()) {
+    <div class="drawer-body flex-1 flex flex-col border-t border-slate-800/80 min-h-0 bg-slate-950/80">
+      <!-- Controls Toolbar -->
+      <div class="toolbar px-4 py-2 flex items-center justify-between border-b border-slate-800/60 bg-slate-900/40">
+        <!-- Filter Pills -->
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="text-[10px] uppercase tracking-wider text-slate-400 font-mono mr-1">Filter:</span>
+          @for (cat of filterCategories; track cat.key) {
+            <button
+              type="button"
+              class="filter-pill text-[10px] font-mono px-2 py-0.5 rounded transition-colors"
+              [class.active-pill]="logService.categoryFilter() === cat.key"
+              [class.inactive-pill]="logService.categoryFilter() !== cat.key"
+              (click)="onFilterSelect(cat.key)"
+            >
+              {{ cat.label }}
+              <span class="text-[9px] opacity-75">
+                ({{ logService.categoryCounts()[cat.key] || 0 }})
+              </span>
+            </button>
+          }
+        </div>
+
+        <!-- Clear Action -->
+        <button
+          type="button"
+          class="clear-btn text-[10px] font-mono px-2 py-1 rounded text-slate-400 hover:text-rose-300 hover:bg-rose-950/30 border border-transparent hover:border-rose-900/50 transition-colors flex items-center gap-1"
+          (click)="onClearLog($event)"
+          title="Clear local event history"
+        >
+          <span>✕</span> Clear Log
+        </button>
+      </div>
+
+      <!-- Scrollable Event Stream -->
+      <div class="events-scroll-feed flex-1 overflow-y-auto px-4 py-2 space-y-1.5 divide-y divide-slate-900/60 font-mono text-xs max-h-56">
+        @if (logService.filteredEvents().length > 0) {
+          @for (entry of logService.filteredEvents(); track entry.id) {
+            <div class="event-row pt-1.5 flex items-start gap-3 hover:bg-slate-900/30 px-2 py-1 rounded transition-colors">
+              <!-- Timestamp -->
+              <span class="text-slate-400 text-[10px] shrink-0 mt-0.5 font-mono">
+                {{ entry.timestamp | date:'HH:mm:ss' }}
+              </span>
+
+              <!-- Category Badge -->
+              <span
+                class="category-badge shrink-0 text-[9px] px-1.5 py-0.5 rounded border"
+                [class.badge-negotiation]="entry.category === 'NEGOTIATION'"
+                [class.badge-reroute]="entry.category === 'REROUTE'"
+                [class.badge-anomaly]="entry.category === 'ANOMALY'"
+                [class.badge-telemetry]="entry.category === 'TELEMETRY'"
+                [class.badge-system]="entry.category === 'SYSTEM'"
+              >
+                {{ entry.category }}
+              </span>
+
+              <!-- Optional Context Chips -->
+              <div class="flex items-center gap-1.5 shrink-0">
+                @if (entry.vehicleId) {
+                  <span class="px-1.5 py-0.5 text-[9px] rounded bg-slate-800 text-sky-300 border border-sky-800/40">
+                    {{ entry.vehicleId }}
+                  </span>
+                }
+                @if (entry.anomalyId) {
+                  <span class="px-1.5 py-0.5 text-[9px] rounded bg-slate-800 text-rose-300 border border-rose-800/40">
+                    {{ entry.anomalyId }}
+                  </span>
+                }
+              </div>
+
+              <!-- Message -->
+              <span class="text-slate-300 flex-1 break-words font-sans text-xs">
+                {{ entry.message }}
+              </span>
+            </div>
+          }
+        } @else {
+          <div class="empty-state py-8 text-center text-slate-400 font-mono text-xs">
+            No events found under category "{{ logService.categoryFilter() }}".
+          </div>
+        }
+      </div>
+    </div>
+  }
+</div>

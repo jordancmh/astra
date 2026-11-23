@@ -12,4 +12,8 @@ public interface NegotiationEventRepository extends JpaRepository<NegotiationEve
     List<NegotiationEvent> findByVehicleIdOrderByCreatedAtDesc(String vehicleId);
 
     List<NegotiationEvent> findByAnomalyIdOrderByCreatedAtDesc(String anomalyId);
+
+    List<NegotiationEvent> findAllByOrderByCreatedAtDesc();
+
+    List<NegotiationEvent> findTop50ByOrderByCreatedAtDesc();
 }

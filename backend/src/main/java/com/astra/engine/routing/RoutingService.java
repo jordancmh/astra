@@ -2,8 +2,10 @@ package com.astra.engine.routing;
 
 import com.astra.engine.common.GeoJsonLineString;
 import com.astra.engine.common.GeometryUtils;
+import com.astra.engine.telemetry.VehicleRepository;
 import org.locationtech.jts.geom.LineString;
 import org.locationtech.jts.geom.Point;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,13 +18,23 @@ public class RoutingService {
     private final GraphHopperClient graphHopperClient;
     private final RouteRepository routeRepository;
     private final NegotiationEventRepository negotiationEventRepository;
+    private final VehicleRepository vehicleRepository;
+
+    @Autowired
+    public RoutingService(GraphHopperClient graphHopperClient,
+                          RouteRepository routeRepository,
+                          NegotiationEventRepository negotiationEventRepository,
+                          VehicleRepository vehicleRepository) {
+        this.graphHopperClient = graphHopperClient;
+        this.routeRepository = routeRepository;
+        this.negotiationEventRepository = negotiationEventRepository;
+        this.vehicleRepository = vehicleRepository;
+    }
 
     public RoutingService(GraphHopperClient graphHopperClient,
                           RouteRepository routeRepository,
                           NegotiationEventRepository negotiationEventRepository) {
-        this.graphHopperClient = graphHopperClient;
-        this.routeRepository = routeRepository;
-        this.negotiationEventRepository = negotiationEventRepository;
+        this(graphHopperClient, routeRepository, negotiationEventRepository, null);
     }
 
     @Transactional(readOnly = true)
@@ -143,6 +155,15 @@ public class RoutingService {
         route.setUpdatedAt(Instant.now());
 
         Route saved = routeRepository.save(route);
+
+        if (vehicleRepository != null && vehicleId != null && !vehicleId.isBlank()) {
+            vehicleRepository.findById(vehicleId.trim()).ifPresent(vehicle -> {
+                vehicle.setCurrentRouteId(saved.getId());
+                vehicle.setStatus("REROUTING");
+                vehicle.setUpdatedAt(Instant.now());
+                vehicleRepository.save(vehicle);
+            });
+        }
 
         if (rationale != null && !rationale.isBlank()) {
             NegotiationEvent event = new NegotiationEvent(
