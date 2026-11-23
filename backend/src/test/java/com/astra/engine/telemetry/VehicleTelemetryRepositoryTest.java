@@ -54,20 +54,21 @@ class VehicleTelemetryRepositoryTest {
     @Test
     void findByVehicleIdOrderByRecordedAtDesc_shouldReturnSortedList() {
         Point point = GeometryUtils.createPoint(101.6371, 3.1140);
+        String testVehicleId = "V-REPO-TEST-SORTED";
 
         VehicleTelemetry t1 = new VehicleTelemetry();
-        t1.setVehicleId("V-002");
+        t1.setVehicleId(testVehicleId);
         t1.setCoordinates(point);
         t1.setRecordedAt(Instant.now().minusSeconds(60));
         repository.save(t1);
 
         VehicleTelemetry t2 = new VehicleTelemetry();
-        t2.setVehicleId("V-002");
+        t2.setVehicleId(testVehicleId);
         t2.setCoordinates(point);
         t2.setRecordedAt(Instant.now());
         repository.save(t2);
 
-        List<VehicleTelemetry> logs = repository.findByVehicleIdOrderByRecordedAtDesc("V-002");
+        List<VehicleTelemetry> logs = repository.findByVehicleIdOrderByRecordedAtDesc(testVehicleId);
         assertThat(logs).hasSize(2);
         assertThat(logs.get(0).getRecordedAt()).isAfter(logs.get(1).getRecordedAt());
     }

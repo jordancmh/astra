@@ -114,4 +114,51 @@ public class FleetService {
 
         return new FleetStateResponse(summary, vehicleDtos, routeDtos, Instant.now());
     }
+
+    @Transactional
+    public void updateVehicleRouteAndStatus(String vehicleId, String routeId, String status) {
+        if (vehicleId == null || vehicleId.isBlank()) {
+            return;
+        }
+        vehicleRepository.findById(vehicleId.trim()).ifPresent(vehicle -> {
+            if (routeId != null && !routeId.isBlank()) {
+                vehicle.setCurrentRouteId(routeId.trim());
+            }
+            if (status != null && !status.isBlank()) {
+                vehicle.setStatus(status.trim().toUpperCase());
+            }
+            vehicle.setUpdatedAt(Instant.now());
+            vehicleRepository.save(vehicle);
+        });
+    }
+
+    @Transactional
+    public void normalizeVehicles() {
+        List<Vehicle> vehicles = vehicleRepository.findAll();
+        List<NetworkAnomaly> activeAnomalies = anomalyRepository.findByIsActiveTrueOrderByInjectedAtDesc();
+        List<Route> routes = routeRepository.findAll();
+        Map<String, Route> routeMap = routes.stream()
+                .collect(Collectors.toMap(Route::getId, r -> r, (r1, r2) -> r1));
+
+        for (Vehicle v : vehicles) {
+            String currStatus = v.getStatus() != null ? v.getStatus().toUpperCase() : "NOMINAL";
+            if ("DISRUPTED".equals(currStatus) || "REROUTING".equals(currStatus)) {
+                Route route = v.getCurrentRouteId() != null ? routeMap.get(v.getCurrentRouteId()) : null;
+                boolean stillIntersected = false;
+                if (route != null && route.getPathGeometry() != null) {
+                    for (NetworkAnomaly a : activeAnomalies) {
+                        if (a.getBoundingBox() != null && route.getPathGeometry().intersects(a.getBoundingBox())) {
+                            stillIntersected = true;
+                            break;
+                        }
+                    }
+                }
+                if (!stillIntersected) {
+                    v.setStatus("NOMINAL");
+                    v.setUpdatedAt(Instant.now());
+                    vehicleRepository.save(v);
+                }
+            }
+        }
+    }
 }

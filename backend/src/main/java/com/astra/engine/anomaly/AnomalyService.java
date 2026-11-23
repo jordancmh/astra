@@ -6,10 +6,12 @@ import com.astra.engine.anomaly.dto.AnomalyInjectRequest;
 import com.astra.engine.anomaly.dto.AnomalyInjectResponse;
 import com.astra.engine.common.GeometryUtils;
 import com.astra.engine.routing.RoutingService;
+import com.astra.engine.telemetry.FleetService;
 import com.astra.engine.telemetry.TelemetryService;
 import com.astra.engine.telemetry.VehicleStatusDto;
 import org.locationtech.jts.geom.Point;
 import org.locationtech.jts.geom.Polygon;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,15 +26,25 @@ public class AnomalyService {
     private final NetworkAnomalyRepository repository;
     private final RoutingService routingService;
     private final TelemetryService telemetryService;
+    private final FleetService fleetService;
     private final AtomicInteger idCounter = new AtomicInteger(1);
     private volatile boolean idInitialized = false;
+
+    @Autowired
+    public AnomalyService(NetworkAnomalyRepository repository,
+                          RoutingService routingService,
+                          TelemetryService telemetryService,
+                          FleetService fleetService) {
+        this.repository = repository;
+        this.routingService = routingService;
+        this.telemetryService = telemetryService;
+        this.fleetService = fleetService;
+    }
 
     public AnomalyService(NetworkAnomalyRepository repository,
                           RoutingService routingService,
                           TelemetryService telemetryService) {
-        this.repository = repository;
-        this.routingService = routingService;
-        this.telemetryService = telemetryService;
+        this(repository, routingService, telemetryService, null);
     }
 
     @Transactional
@@ -107,6 +119,9 @@ public class AnomalyService {
             NetworkAnomaly anomaly = opt.get();
             anomaly.setActive(false);
             repository.save(anomaly);
+            if (fleetService != null) {
+                fleetService.normalizeVehicles();
+            }
             return true;
         }
         return false;
@@ -119,6 +134,9 @@ public class AnomalyService {
             a.setActive(false);
         }
         repository.saveAll(active);
+        if (fleetService != null) {
+            fleetService.normalizeVehicles();
+        }
         return new AnomalyClearResponse(active.size(), Instant.now());
     }
 

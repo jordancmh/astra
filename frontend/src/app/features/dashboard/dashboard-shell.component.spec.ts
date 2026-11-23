@@ -62,6 +62,7 @@ describe('DashboardShellComponent', () => {
     (anomalyServiceSpy as any).isDroppingOnMap = isDroppingOnMapSignal;
     (anomalyServiceSpy as any).selectedCoordinates = selectedCoordinatesSignal;
     (anomalyServiceSpy as any).isLoading = isLoadingSignal;
+    (anomalyServiceSpy as any).anomalyEvents$ = of();
 
     anomalyServiceSpy.fetchActiveAnomalies.and.returnValue(of([]));
     anomalyServiceSpy.isWithinKlangValley.and.returnValue(true);
@@ -137,5 +138,10 @@ describe('DashboardShellComponent', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('ROAD_CLOSURE');
     expect(compiled.textContent).toContain('D-001');
+  });
+
+  it('should render app-event-log component at the bottom of the shell', () => {
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('app-event-log')).toBeTruthy();
   });
 });
