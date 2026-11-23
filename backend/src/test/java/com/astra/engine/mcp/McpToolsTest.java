@@ -1,5 +1,7 @@
 package com.astra.engine.mcp;
 
+import com.astra.engine.anomaly.AnomalyService;
+import com.astra.engine.anomaly.dto.AnomalyDto;
 import com.astra.engine.common.GeoJsonLineString;
 import com.astra.engine.routing.RouteUpdateResult;
 import com.astra.engine.routing.RoutingService;
@@ -32,19 +34,28 @@ class McpToolsTest {
     @Mock
     private RoutingService routingService;
 
+    @Mock
+    private AnomalyService anomalyService;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
     private McpTools mcpTools;
 
     @BeforeEach
     void setUp() {
-        mcpTools = new McpTools(telemetryService, routingService, objectMapper);
+        mcpTools = new McpTools(telemetryService, routingService, anomalyService, objectMapper);
     }
 
     @Test
-    void getFleetState_withoutVehicleId_returnsAllVehiclesJson() {
+    void getFleetState_withoutVehicleId_returnsAllVehiclesAndAnomaliesJson() {
         VehicleStatusDto v1 = new VehicleStatusDto("V-001", "RT-001", 3.1140, 101.6371, 87.0, 78.0, "NOMINAL", Instant.now());
         VehicleStatusDto v2 = new VehicleStatusDto("V-002", "RT-002", 3.0755, 101.5540, 45.0, 60.0, "NOMINAL", Instant.now());
         when(telemetryService.getFleetState(null)).thenReturn(List.of(v1, v2));
+
+        AnomalyDto anomaly = new AnomalyDto(
+                "D-001", "D-001", "ROAD_CLOSURE", "HIGH", 500.0,
+                List.of(101.6210, 3.1180), null, Instant.now(), true
+        );
+        when(anomalyService.getActiveAnomalies()).thenReturn(List.of(anomaly));
 
         String json = mcpTools.getFleetState(null);
 
@@ -52,7 +63,10 @@ class McpToolsTest {
         assertThat(json).contains("\"count\":2");
         assertThat(json).contains("V-001");
         assertThat(json).contains("V-002");
+        assertThat(json).contains("anomalies");
+        assertThat(json).contains("D-001");
         verify(telemetryService).getFleetState(null);
+        verify(anomalyService).getActiveAnomalies();
     }
 
     @Test
